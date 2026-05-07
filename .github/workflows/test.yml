@@ -1,0 +1,27 @@
+name: Run Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install Bats 1.11
+        uses: bats-core/bats-action@main
+        with:
+          bats-version: "1.11.0"
+
+      - name: Run Bats tests
+        run: bats tests --print-output-on-failure
+        env:
+          TERM: xterm

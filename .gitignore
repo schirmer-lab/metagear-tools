@@ -1,0 +1,19 @@
+# Runtime/build artifacts (anchored to repo root so they don't shadow templates/)
+/.metagear/
+/metagear
+/metagear.config
+/metagear.env
+/metagear_*.sh
+/*.config
+/.nextflow*
+/results/
+.venv/
+
+# macOS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

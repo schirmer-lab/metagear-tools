@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          # Extract the changelog entry for this version
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Get the section between this version and the next one
+          CHANGELOG_ENTRY=$(awk "/^## \[${VERSION#v}\]/{flag=1; next} /^## \[/{flag=0} flag {print}" CHANGELOG.md)
+
+          # If changelog entry is empty, use a default message
+          if [ -z "$CHANGELOG_ENTRY" ]; then
+            CHANGELOG_ENTRY="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+          fi
+
+          # Save to output (handling multiline)
+          {
+            echo 'RELEASE_NOTES<<EOF'
+            echo "$CHANGELOG_ENTRY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes "## What's Changed
+
+          ${{ steps.changelog.outputs.RELEASE_NOTES }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}" \
+            --draft=false \
+            --prerelease=false
