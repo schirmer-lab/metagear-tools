@@ -113,7 +113,7 @@ for file in "$@"; do
             fi
 
         elif [ "$current_section" = "process" ]; then
-            if echo "$trimmed" | grep -q '^withName:'; then
+            if echo "$trimmed" | grep -qE '^with(Name|Label):'; then
                 # Extract block name (supports both withName and withLabel, optional quotes)
                 block_name=$(echo "$trimmed" | sed -E "s/^with(Name|Label):[[:space:]]*['\"]?([^'\"]+)['\"]?[[:space:]]*\{.*/\2/")
                 block_content="$line"$'\n'

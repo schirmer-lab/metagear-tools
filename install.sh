@@ -284,6 +284,23 @@ else
     echo "  - Environment file created: ${INSTALL_DIR}/metagear.env"
 fi
 
+# Create per-user resource override stub (skip if it already exists so users
+# don't lose their tuned values on re-install). main.sh regenerates
+# $INSTALL_DIR/resources.config from this YAML on every invocation.
+user_resources_yaml="${INSTALL_DIR}/resources.yaml"
+if [[ -f "$user_resources_yaml" ]]; then
+    echo "  - Resources YAML already exists, skipping: ${user_resources_yaml}"
+else
+    cp "${INSTALL_DIR}/utilities/templates/resources.yaml" "$user_resources_yaml"
+    echo "  - Resources YAML stub created: ${user_resources_yaml}"
+fi
+
+# Record install-time build number (YYMMDD). Read by `metagear --version`.
+# Always overwritten on re-install so the build advances with each install.
+BUILD_NUMBER="$(date +%y%m%d)"
+echo "${BUILD_NUMBER}" > "${INSTALL_DIR}/.build"
+echo "  - Build number: ${BUILD_NUMBER}"
+
 # Check dependencies and provide informational warnings
 echo ""
 echo "${GREEN}→ Checking runtime dependencies${RESET}"

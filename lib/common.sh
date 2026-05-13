@@ -10,10 +10,39 @@ source "$INSTALL_DIR/utilities/lib/workflow_definitions.sh"
 function usage() {
     echo ""
     echo "Usage: metagear <command> [options]"
+    echo "       metagear --version          Show installed version and build number"
+    echo "       metagear --help             Show this message"
+    echo ""
+    echo "Global flags:"
+    echo "       --reuse-outputs   Scan --outdir for previously-produced artifacts (contigs,"
+    echo "                         genes, catalogs, abundance tables, …) and skip stages"
+    echo "                         whose outputs already exist on disk."
+    echo "       --preview         Generate the launch script without running it."
+    echo ""
     echo "Commands:"
     get_workflow_list
     echo ""
     exit 1
+}
+
+
+function show_version() {
+    local version="unknown"
+    local build="unknown"
+    local utils_path="$INSTALL_DIR/utilities"
+    local pipe_path="$INSTALL_DIR/latest"
+
+    [ -f "$utils_path/VERSION" ] && version=$(cat "$utils_path/VERSION")
+    [ -f "$INSTALL_DIR/.build" ] && build=$(cat "$INSTALL_DIR/.build")
+
+    # Resolve symlinks (helpful for development installs that point at
+    # local source repos via `install.sh --utilities/--pipeline`).
+    [ -L "$utils_path" ] && utils_path=$(readlink -f "$utils_path" 2>/dev/null || readlink "$utils_path")
+    [ -L "$pipe_path" ]  && pipe_path=$(readlink -f "$pipe_path" 2>/dev/null || readlink "$pipe_path")
+
+    echo "metagear $version (build $build)"
+    echo "  utilities: $utils_path"
+    echo "  pipeline:  $pipe_path"
 }
 
 

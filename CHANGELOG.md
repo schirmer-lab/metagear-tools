@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `metagear --version` (also `-version` / `version`) prints semver + install-time build number (YYMMDD), plus resolved utilities/pipeline paths so symlinked dev installs are obvious.
+- `VERSION` file at the repo root holds the wrapper's semver.
+- Install-time build stamp written to `$INSTALL_DIR/.build` on every install/re-install.
+- Per-user resource overrides via `$INSTALL_DIR/resources.yaml`. `install.sh` seeds the file from `templates/resources.yaml` (skip-if-exists). `main.sh` regenerates `$INSTALL_DIR/resources.config` from it on every `metagear …` invocation, using the bash YAML generator at `lib/build_resources_config.sh`. Nextflow loads the regenerated config via `includeConfig` (per-key merging — coexists cleanly with the wrapper's existing block-level merge of `conf/metagear/*.config`).
+- `--reuse-outputs` global flag: scans `--outdir` for outputs from prior runs (contigs, genes, gene/protein catalogs, abundance tables, protein annotations) and auto-injects the matching `--contigs_dir`/`--genes_dir`/`--representative_*` flags so the pipeline's existing skip-if-set logic kicks in. Mapping lives in `lib/reuse_outputs.json`; logic in `lib/auto_reuse.sh`. All-or-nothing per artifact (any sample's file missing → fall through to running fully). Explicit user-passed flags always win over auto-resolved ones. Loud logging of every match/skip on stderr.
+- New `lib/build_resources_config.sh` — pure-bash 4+ generator that converts a restricted YAML schema (flow-style entries, `labels:` and `overrides:` sections) to a Nextflow config. Used both by `main.sh` (for per-user overrides) and by pipeline maintainers regenerating the pipeline's defaults from `conf/resources.yaml`.
+- Fixed `merge_configuration.sh` to also recognize `withLabel:` blocks (previously only `withName:` was handled, causing label blocks in user configs to be silently dropped and prematurely close the `process { }` section).
 
 ### Changed
 

@@ -1,0 +1,60 @@
+{
+    "_comment": "Map of pipeline-produced artifacts to canonical paths under params.outdir. Used by lib/auto_reuse.sh when the user passes --reuse-outputs to skip stages whose outputs already exist on disk.",
+    "_kinds": {
+        "dir":  "Per-sample directory. The wrapper emits --<param> <dir> only if every sample id from the input CSV has a file at <dir>/<sample_id><per_sample_suffix>.",
+        "file": "Single-file artifact (catalog-level, dataset-wide). The wrapper emits --<param> <path> only if the file exists."
+    },
+
+    "reusable": [
+        {
+            "param": "contigs_dir",
+            "kind": "dir",
+            "subdir": "megahit",
+            "per_sample_suffix": ".contigs.fa.gz",
+            "produced_by": "MEGAHIT"
+        },
+        {
+            "param": "genes_dir",
+            "kind": "dir",
+            "subdir": "prodigal",
+            "per_sample_suffix": ".all.genes.filtered.fasta",
+            "produced_by": "FILTER_PRODIGAL"
+        },
+        {
+            "param": "representative_genes",
+            "kind": "file",
+            "path": "catalogs/all.genes.representative.fa.gz",
+            "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER"
+        },
+        {
+            "param": "representative_proteins",
+            "kind": "file",
+            "path": "catalogs/all.proteins.representative.fa.gz",
+            "produced_by": "CLUSTER_PROTEINS:MMSEQS_EASY_CLUSTER"
+        },
+        {
+            "param": "representative_proteins_annotations",
+            "kind": "file",
+            "path": "annotations/interproscan/all.proteins.FG_IPS_Pfam.tsv",
+            "produced_by": "FUNCTIONALGROUP_ANNOTATION"
+        },
+        {
+            "param": "representative_genes_tpm",
+            "kind": "file",
+            "path": "coverm/all.genes_tpm_merged.tsv",
+            "produced_by": "COVERM_CONTIG_MERGE"
+        },
+        {
+            "param": "representative_genes_rpkm",
+            "kind": "file",
+            "path": "coverm/all.genes_rpkm_merged.tsv",
+            "produced_by": "COVERM_CONTIG_MERGE"
+        },
+        {
+            "param": "representative_genes_count",
+            "kind": "file",
+            "path": "coverm/all.genes_count_merged.tsv",
+            "produced_by": "COVERM_CONTIG_MERGE"
+        }
+    ]
+}

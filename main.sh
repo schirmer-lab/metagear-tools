@@ -20,6 +20,13 @@ LAUNCH_DIR="$PWD"
 source "${UTILITIES_DIR}/lib/common.sh"
 source "${UTILITIES_DIR}/lib/workflows.sh"
 
+# Handle --version early — must work even if config files are missing,
+# since users may run `metagear --version` to debug a broken install.
+if [ "${1:-}" = "--version" ] || [ "${1:-}" = "-version" ] || [ "${1:-}" = "version" ]; then
+    show_version
+    exit 0
+fi
+
 check_metagear_home
 
 # Ensure a command is provided
@@ -47,13 +54,17 @@ for arg in "$@"; do
     fi
 done
 
-# Detect preview mode and filter it from the arguments
+# Detect preview mode and --reuse-outputs, filter both from the arguments.
 PREVIEW=false
+REUSE_OUTPUTS=false
 REMAINING_ARGS=()
 while (( $# > 0 )); do
     case "$1" in
         -preview|--preview)
             PREVIEW=true
+            ;;
+        -reuse-outputs|--reuse-outputs)
+            REUSE_OUTPUTS=true
             ;;
         *)
             REMAINING_ARGS+=("$1")
@@ -77,13 +88,97 @@ fi
 
 # mkdir -p $LAUNCH_DIR/.metagear
 
+# Regenerate per-user resource override config from YAML, if both the YAML
+# and the pipeline-side generator are present. The output is loaded by
+# Nextflow via includeConfig in nextflow.config — separate from the merge
+# below, so per-key resource overrides don't clobber workflow-specific
+# ext.args/publishDir from conf/metagear/.
+USER_RES_YAML="$INSTALL_DIR/resources.yaml"
+USER_RES_CONFIG="$INSTALL_DIR/resources.config"
+RES_GENERATOR="$UTILITIES_DIR/lib/build_resources_config.sh"
+if [[ -f "$USER_RES_YAML" && -f "$RES_GENERATOR" ]]; then
+    if ! bash "$RES_GENERATOR" "$USER_RES_YAML" "$USER_RES_CONFIG" >/dev/null; then
+        echo "Warning: failed to regenerate $USER_RES_CONFIG from $USER_RES_YAML; falling back to pipeline defaults." >&2
+        rm -f "$USER_RES_CONFIG"
+    fi
+fi
+
 custom_config_files=( $PIPELINE_DIR/conf/metagear/$COMMAND.config $INSTALL_DIR/metagear.config )
 metagear_config_files=( $PIPELINE_DIR/conf/metagear/*.config )
 all_config_files=( "${metagear_config_files[@]}" "${custom_config_files[@]}" )
 
 $UTILITIES_DIR/lib/merge_configuration.sh ${all_config_files[@]} > $LAUNCH_DIR/$COMMAND.config
 
+# Re-bind executor caps and per-process resourceLimits so they pick up the
+# user's max_* values from $INSTALL_DIR/metagear.config. nextflow.config sets
+# these too, but Groovy resolves them at *its* parse time using the pipeline
+# defaults — by the time -c <merged>.config updates params.max_*, executor.cpus
+# and process.resourceLimits are already locked. Re-binding them here, in the
+# config that loads last, fixes the override path.
+cat >> "$LAUNCH_DIR/$COMMAND.config" <<'EOF'
+
+executor {
+    cpus   = params.max_cpus as int
+    memory = params.max_memory as nextflow.util.MemoryUnit
+}
+
+process {
+    resourceLimits = [
+        cpus  : params.max_cpus as int,
+        memory: params.max_memory as nextflow.util.MemoryUnit,
+        time  : params.max_time as nextflow.util.Duration,
+    ]
+}
+EOF
+
 nf_cmd_workflow_part=$(run_workflows $COMMAND "${REMAINING_ARGS[@]}")
+
+# If --reuse-outputs was passed, scan ${outdir} for previously-produced
+# artifacts and append corresponding --<param> <path> flags so the pipeline's
+# existing skip-if-set logic (--contigs_dir, --genes_dir, --representative_*)
+# kicks in. Flags the user already specified explicitly are NOT overridden.
+if [[ "$REUSE_OUTPUTS" == "true" ]]; then
+    source "$UTILITIES_DIR/lib/auto_reuse.sh"
+
+    # Pull --input and --outdir out of the user's args (with sensible default
+    # for outdir matching workflows.sh).
+    reuse_input=""
+    reuse_outdir="results"
+    for ((i = 0; i < ${#REMAINING_ARGS[@]}; i++)); do
+        case "${REMAINING_ARGS[i]}" in
+            --input)  reuse_input="${REMAINING_ARGS[i+1]}" ;;
+            --outdir) reuse_outdir="${REMAINING_ARGS[i+1]}" ;;
+        esac
+    done
+
+    if [[ -n "$reuse_input" ]]; then
+        reuse_flags=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && reuse_flags+=( "$line" )
+        done < <(auto_reuse_emit_flags "$reuse_outdir" "$reuse_input" "${REMAINING_ARGS[@]}")
+
+        # Skip flags the user already passed — explicit always wins.
+        i=0
+        while (( i < ${#reuse_flags[@]} )); do
+            flag="${reuse_flags[i]}"
+            value="${reuse_flags[i+1]}"
+            already_set=false
+            for arg in "${REMAINING_ARGS[@]}"; do
+                if [[ "$arg" == "$flag" ]]; then
+                    already_set=true
+                    echo "[auto-reuse]   ${flag}  skipped: user passed it explicitly" >&2
+                    break
+                fi
+            done
+            if [[ "$already_set" == "false" ]]; then
+                nf_cmd_workflow_part="$nf_cmd_workflow_part $flag $value"
+            fi
+            i=$((i + 2))
+        done
+    else
+        echo "[auto-reuse] --reuse-outputs requested but --input not provided — skipping" >&2
+    fi
+fi
 
 cat $INSTALL_DIR/metagear.env > $LAUNCH_DIR/metagear_$COMMAND.sh
 

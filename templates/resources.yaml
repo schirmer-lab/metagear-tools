@@ -1,0 +1,79 @@
+# MetaGEAR — per-user resource overrides
+#
+# Override CPU / memory / time for specific processes WITHOUT touching the
+# pipeline source. The wrapper regenerates `~/.metagear/resources.config`
+# from this file on every invocation; Nextflow loads it via includeConfig.
+#
+# Format
+# ------
+#   labels:        re-tunes a `withLabel:` resource tier (advanced — affects
+#                  every process declaring that label)
+#   processes:     one row per process. `label:` is informational (the actual
+#                  label is in the module file); `cpus`/`memory_gb`/`time_h`
+#                  are emitted as a `withName:` override when present.
+#
+#   - To enable an override: uncomment the row and edit the cpus/memory_gb/time_h.
+#   - To revert to the label's defaults: re-comment the row, OR remove the
+#     cpus/memory_gb/time_h fields (leaving just `{ label: ... }`).
+#   - Memory and time get `* task.attempt` automatically (retries escalate).
+#   - `process.resourceLimits` (from your max_cpus / max_memory / max_time in
+#     metagear.config) caps the result.
+#
+# Constraints (parser is intentionally minimal):
+#   - One entry per line, flow style ({ … })
+#   - Field names: cpus, memory_gb, time_h, note, label (all optional)
+#   - No `,` inside any value (the parser splits the body on commas)
+#   - No YAML anchors / aliases / multi-line strings
+#
+# The rows below are the PIPELINE'S CURRENT DEFAULTS (commented out so this
+# file is functionally empty until you uncomment something). Anything not
+# listed here is using its module's `withLabel:` tier directly. For the full
+# list of processes (including light helpers omitted from this menu), see
+# `<pipeline_dir>/conf/resources.yaml`.
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Resource tiers — advanced. Re-tunes a whole label class, affecting every
+# process that declares it.
+# ──────────────────────────────────────────────────────────────────────────
+
+labels:
+  # process_single:      { cpus:  1, memory_gb:   6, time_h:  4 }
+  # process_low:         { cpus:  2, memory_gb:  12, time_h:  4 }
+  # process_medium:      { cpus:  6, memory_gb:  36, time_h:  8 }
+  # process_high:        { cpus: 12, memory_gb:  72, time_h: 16 }
+  # process_long:        { time_h: 20 }
+  # process_high_memory: { memory_gb: 200 }
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Per-process overrides — heavy / data-sensitive tools you're most likely
+# to tune. The `label:` column shows which resource tier each process
+# inherits from in the pipeline.
+# ──────────────────────────────────────────────────────────────────────────
+
+processes:
+
+  # ── Assembly ──
+  # MEGAHIT:                  { label: process_high,    cpus: 12, memory_gb: 24, time_h: 16 }
+
+  # ── Viral detection ──
+  # GENOMAD_PASS1:            { label: process_high,    cpus: 12, memory_gb: 24, time_h: 16 }
+  # GENOMAD_PASS2:            { label: process_high,    cpus: 12, memory_gb: 24, time_h: 16 }
+  # CHECKV_PASS1:             { label: process_medium,  cpus:  6, memory_gb: 16, time_h:  8 }
+  # CHECKV_PASS2:             { label: process_medium,  cpus:  6, memory_gb: 16, time_h:  8 }
+
+  # ── Clustering ──
+  # MMSEQS_EASY_CLUSTER:      { label: process_high,    cpus: 12, memory_gb: 32, time_h: 16 }
+
+  # ── Microbial profiling ──
+  # HUMANN_FUNCTION:          { label: process_medium,  cpus: 12, memory_gb: 24, time_h: 24, note: "bump for deep samples / many strains" }
+
+  # ── Protein annotation ──
+  # INTERPROSCAN:             { label: process_long,    cpus: 12, memory_gb: 24, time_h: 24 }
+
+  # ── Viral annotation ──
+  # PHAROKKA_PROTEINS:        { label: process_high }
+  # IPHOP_PREDICT:            { label: process_high,    cpus: 24, memory_gb: 68, time_h: 24, note: "iPHoP DB ~110 GB on disk" }
+  # VIRSORTER2_4DRAMV:        { label: "(none)",        cpus: 12, memory_gb: 24, time_h: 12 }
+  # DRAMV:                    { label: "(none)",        cpus: 12, memory_gb: 24, time_h: 16 }
