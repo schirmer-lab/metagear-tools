@@ -1,60 +1,95 @@
 {
-    "_comment": "Map of pipeline-produced artifacts to canonical paths under params.outdir. Used by lib/auto_reuse.sh when the user passes --reuse-outputs to skip stages whose outputs already exist on disk.",
-    "_kinds": {
-        "dir":  "Per-sample directory. The wrapper emits --<param> <dir> only if every sample id from the input CSV has a file at <dir>/<sample_id><per_sample_suffix>.",
-        "file": "Single-file artifact (catalog-level, dataset-wide). The wrapper emits --<param> <path> only if the file exists."
+  "_comment": "Map of pipeline-produced artifacts to canonical paths under params.outdir. Used by lib/auto_reuse.sh when the user passes --reuse-outputs to skip stages whose outputs already exist on disk.",
+  "_kinds": {
+    "dir": "Per-sample directory. The wrapper emits --<param> <dir> only if every sample id from the input CSV has a file at <dir>/<sample_id><per_sample_suffix>.",
+    "file": "Single-file artifact (catalog-level, dataset-wide). The wrapper emits --<param> <path> only if the file exists."
+  },
+  "reusable": [
+    {
+      "param": "contigs_dir",
+      "kind": "dir",
+      "subdir": "megahit",
+      "per_sample_suffix": ".contigs.fa.gz",
+      "produced_by": "MEGAHIT"
     },
-
-    "reusable": [
-        {
-            "param": "contigs_dir",
-            "kind": "dir",
-            "subdir": "megahit",
-            "per_sample_suffix": ".contigs.fa.gz",
-            "produced_by": "MEGAHIT"
-        },
-        {
-            "param": "genes_dir",
-            "kind": "dir",
-            "subdir": "prodigal",
-            "per_sample_suffix": ".all.genes.filtered.fasta",
-            "produced_by": "FILTER_PRODIGAL"
-        },
-        {
-            "param": "representative_genes",
-            "kind": "file",
-            "path": "catalogs/all.genes.representative.fa.gz",
-            "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER"
-        },
-        {
-            "param": "representative_proteins",
-            "kind": "file",
-            "path": "catalogs/all.proteins.representative.fa.gz",
-            "produced_by": "CLUSTER_PROTEINS:MMSEQS_EASY_CLUSTER"
-        },
-        {
-            "param": "representative_proteins_annotations",
-            "kind": "file",
-            "path": "annotations/interproscan/all.proteins.FG_IPS_Pfam.tsv",
-            "produced_by": "FUNCTIONALGROUP_ANNOTATION"
-        },
-        {
-            "param": "representative_genes_tpm",
-            "kind": "file",
-            "path": "coverm/all.genes_tpm_merged.tsv",
-            "produced_by": "COVERM_CONTIG_MERGE"
-        },
-        {
-            "param": "representative_genes_rpkm",
-            "kind": "file",
-            "path": "coverm/all.genes_rpkm_merged.tsv",
-            "produced_by": "COVERM_CONTIG_MERGE"
-        },
-        {
-            "param": "representative_genes_count",
-            "kind": "file",
-            "path": "coverm/all.genes_count_merged.tsv",
-            "produced_by": "COVERM_CONTIG_MERGE"
-        }
-    ]
+    {
+      "param": "genes_dir",
+      "kind": "dir",
+      "subdir": "prodigal",
+      "per_sample_suffix": ".all.genes.filtered.fasta",
+      "produced_by": "FILTER_PRODIGAL"
+    },
+    {
+      "param": "representative_genes",
+      "kind": "file",
+      "path": "catalogs/all.genes.representative.fa.gz",
+      "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER"
+    },
+    {
+      "param": "representative_proteins",
+      "kind": "file",
+      "path": "catalogs/all.proteins.representative.fa.gz",
+      "produced_by": "CLUSTER_PROTEINS:MMSEQS_EASY_CLUSTER"
+    },
+    {
+      "param": "representative_proteins_annotations",
+      "kind": "file",
+      "path": "annotations/interproscan/all.proteins.FG_IPS_Pfam.tsv",
+      "produced_by": "FUNCTIONALGROUP_ANNOTATION"
+    },
+    {
+      "param": "representative_genes_tpm",
+      "kind": "file",
+      "path": "coverm/all.genes_tpm_merged.tsv",
+      "produced_by": "COVERM_CONTIG_MERGE"
+    },
+    {
+      "param": "representative_genes_rpkm",
+      "kind": "file",
+      "path": "coverm/all.genes_rpkm_merged.tsv",
+      "produced_by": "COVERM_CONTIG_MERGE"
+    },
+    {
+      "param": "representative_genes_count",
+      "kind": "file",
+      "path": "coverm/all.genes_count_merged.tsv",
+      "produced_by": "COVERM_CONTIG_MERGE"
+    },
+    {
+      "param": "chromosome_dir",
+      "kind": "dir",
+      "subdir": "virus/genomad/chromosome",
+      "per_sample_suffix": ".chromosome.fna.gz",
+      "produced_by": "GENOMAD_EXTRACT_CHROMOSOME"
+    },
+    {
+      "param": "viral_ids_dir",
+      "kind": "dir",
+      "subdir": "virus/merge_filter",
+      "per_sample_suffix": "_viral_ids_to_keep.txt",
+      "produced_by": "MERGE_TABLES"
+    },
+    {
+      "param": "plasmid_ids_dir",
+      "kind": "dir",
+      "subdir": "virus/merge_filter",
+      "per_sample_suffix": "_plasmid_ids_to_keep.txt",
+      "produced_by": "MERGE_TABLES"
+    },
+    {
+      "param": "bins_dir",
+      "kind": "dir",
+      "subdir": "binning/binette",
+      "per_sample_suffix": "/final_bins_quality_reports.tsv",
+      "produced_by": "BINETTE",
+      "_comment": "Per-sample Binette output (final_bins/, final_bins_quality_reports.tsv, final_contig_to_bin.tsv). The suffix anchors against the QC TSV as the single-file existence check; cohort_dereplication.nf reads the parent dir per sample. Requires the flat BINETTE publishDir (no ${meta.id} in path) — see bacterial_binning.config."
+    },
+    {
+      "param": "per_contig_tsv_dir",
+      "kind": "dir",
+      "subdir": "integrated_classification/per_contig",
+      "per_sample_suffix": ".contigs.tsv",
+      "produced_by": "MERGE_CONTIG_CLASSIFICATION"
+    }
+  ]
 }

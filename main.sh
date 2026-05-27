@@ -157,7 +157,15 @@ if [[ "$REUSE_OUTPUTS" == "true" ]]; then
             [[ -n "$line" ]] && reuse_flags+=( "$line" )
         done < <(auto_reuse_emit_flags "$reuse_outdir" "$reuse_input" "${REMAINING_ARGS[@]}")
 
-        # Skip flags the user already passed — explicit always wins.
+        # Walk the reuse-emitted flags and decide which to attach. Two skip cases:
+        #   1. user already passed the same flag explicitly → log inline (rare,
+        #      and the user wants to know their explicit choice took effect)
+        #   2. the flag isn't valid for this workflow's param schema → collect
+        #      silently and print one summary line at the end. This case is
+        #      common (e.g. running integrated_classification in an outdir that
+        #      also has gene_analysis artifacts), and a per-flag "skipped"
+        #      message just produces line noise the user has to scan past.
+        skipped_not_applicable=()
         i=0
         while (( i < ${#reuse_flags[@]} )); do
             flag="${reuse_flags[i]}"
@@ -171,10 +179,24 @@ if [[ "$REUSE_OUTPUTS" == "true" ]]; then
                 fi
             done
             if [[ "$already_set" == "false" ]]; then
-                nf_cmd_workflow_part="$nf_cmd_workflow_part $flag $value"
+                param_name="${flag#--}"
+                if is_workflow_param_allowed "$COMMAND" "$param_name"; then
+                    nf_cmd_workflow_part="$nf_cmd_workflow_part $flag $value"
+                else
+                    skipped_not_applicable+=( "$flag" )
+                fi
             fi
             i=$((i + 2))
         done
+
+        # Single-line summary of the "found but not applicable" set. Suppressed
+        # entirely when nothing was skipped that way.
+        if (( ${#skipped_not_applicable[@]} > 0 )); then
+            printf -- '[auto-reuse] %d other artifact(s) detected but not applicable to %s: %s\n' \
+                "${#skipped_not_applicable[@]}" \
+                "$COMMAND" \
+                "$(IFS=', '; echo "${skipped_not_applicable[*]}")" >&2
+        fi
     else
         echo "[auto-reuse] --reuse-outputs requested but --input not provided — skipping" >&2
     fi

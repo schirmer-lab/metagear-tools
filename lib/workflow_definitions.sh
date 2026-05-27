@@ -34,6 +34,31 @@ if [ -z "${JSON_PARSER:-}" ]; then
     exit 1
 fi
 
+# Returns 0 if `$param` is an allowed parameter for `$workflow_name` (either a
+# global parameter or one declared by the workflow itself), 1 otherwise.
+# Used by main.sh to drop reuse-emitted flags that the current workflow does
+# not consume — keeps the generated launch script free of stale artifact paths
+# from prior runs of other workflows.
+is_workflow_param_allowed() {
+    local workflow_name="$1"
+    local param="$2"
+    local name
+
+    while IFS= read -r param_json; do
+        [ -z "$param_json" ] && continue
+        name=$(get_parameter_field "$param_json" "name")
+        [ "$name" = "$param" ] && return 0
+    done < <(get_global_parameters)
+
+    while IFS= read -r param_json; do
+        [ -z "$param_json" ] && continue
+        name=$(get_parameter_field "$param_json" "name")
+        [ "$name" = "$param" ] && return 0
+    done < <(get_workflow_parameters "$workflow_name")
+
+    return 1
+}
+
 # Function to check if workflow has required parameters
 workflow_has_required_parameters() {
     local workflow_name="$1"
