@@ -65,15 +65,15 @@
     {
       "param": "viral_ids_dir",
       "kind": "dir",
-      "subdir": "virus/merge_filter",
-      "per_sample_suffix": "_viral_ids_to_keep.txt",
+      "subdir": "virus/per_sample",
+      "per_sample_suffix": "/virus.ids.txt",
       "produced_by": "MERGE_TABLES"
     },
     {
       "param": "plasmid_ids_dir",
       "kind": "dir",
-      "subdir": "virus/merge_filter",
-      "per_sample_suffix": "_plasmid_ids_to_keep.txt",
+      "subdir": "virus/per_sample",
+      "per_sample_suffix": "/plasmid.ids.txt",
       "produced_by": "MERGE_TABLES"
     },
     {
