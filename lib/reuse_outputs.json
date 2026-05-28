@@ -8,7 +8,7 @@
     {
       "param": "contigs_dir",
       "kind": "dir",
-      "subdir": "megahit",
+      "subdir": "assemblies/contigs",
       "per_sample_suffix": ".contigs.fa.gz",
       "produced_by": "MEGAHIT"
     },
@@ -22,13 +22,13 @@
     {
       "param": "representative_genes",
       "kind": "file",
-      "path": "catalogs/all.genes.representative.fa.gz",
+      "path": "catalogs/genes/all.genes.representative.fa.gz",
       "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER"
     },
     {
       "param": "representative_proteins",
       "kind": "file",
-      "path": "catalogs/all.proteins.representative.fa.gz",
+      "path": "catalogs/proteins/all.proteins.representative.fa.gz",
       "produced_by": "CLUSTER_PROTEINS:MMSEQS_EASY_CLUSTER"
     },
     {
@@ -40,19 +40,19 @@
     {
       "param": "representative_genes_tpm",
       "kind": "file",
-      "path": "coverm/all.genes_tpm_merged.tsv",
+      "path": "abundance/all.genes/all.genes.tpm.tsv",
       "produced_by": "COVERM_CONTIG_MERGE"
     },
     {
       "param": "representative_genes_rpkm",
       "kind": "file",
-      "path": "coverm/all.genes_rpkm_merged.tsv",
+      "path": "abundance/all.genes/all.genes.rpkm.tsv",
       "produced_by": "COVERM_CONTIG_MERGE"
     },
     {
       "param": "representative_genes_count",
       "kind": "file",
-      "path": "coverm/all.genes_count_merged.tsv",
+      "path": "abundance/all.genes/all.genes.count.tsv",
       "produced_by": "COVERM_CONTIG_MERGE"
     },
     {
@@ -79,10 +79,10 @@
     {
       "param": "bins_dir",
       "kind": "dir",
-      "subdir": "binning/binette",
-      "per_sample_suffix": "/final_bins_quality_reports.tsv",
+      "subdir": "assemblies/bins",
+      "per_sample_suffix": "/quality_report.tsv",
       "produced_by": "BINETTE",
-      "_comment": "Per-sample Binette output (final_bins/, final_bins_quality_reports.tsv, final_contig_to_bin.tsv). The suffix anchors against the QC TSV as the single-file existence check; cohort_dereplication.nf reads the parent dir per sample. Requires the flat BINETTE publishDir (no ${meta.id} in path) — see bacterial_binning.config."
+      "_comment": "Per-sample Binette deliverables (MAG FASTAs + quality_report.tsv + contig_to_bin.tsv) live in assemblies/bins/<sample>/. The anchor file is the QC TSV. Pre-Binette intermediates (input_bins_quality_reports/, temporary_files/) stay in binning/binette/<sample>/ via a separate dual-publishDir branch — they are not part of the reuse contract."
     },
     {
       "param": "per_contig_tsv_dir",
