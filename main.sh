@@ -162,8 +162,8 @@ if [[ "$REUSE_OUTPUTS" == "true" ]]; then
         #      and the user wants to know their explicit choice took effect)
         #   2. the flag isn't valid for this workflow's param schema → collect
         #      silently and print one summary line at the end. This case is
-        #      common (e.g. running integrated_classification in an outdir that
-        #      also has gene_analysis artifacts), and a per-flag "skipped"
+        #      common (e.g. running classification in an outdir that
+        #      also has genes artifacts), and a per-flag "skipped"
         #      message just produces line noise the user has to scan past.
         skipped_not_applicable=()
         i=0

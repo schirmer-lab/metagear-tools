@@ -89,7 +89,7 @@
       "kind": "file",
       "path": "catalogs/genes/all.genes.clusters.tsv",
       "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER",
-      "_comment": "Full gene cluster TSV (rep<TAB>member). When present, integrated_classification cross-walks per-contig primary_class onto the gene clusters and emits clusters/all.genes.clusters.aggregated.refined.tsv."
+      "_comment": "Full gene cluster TSV (rep<TAB>member). When present, classification cross-walks per-contig primary_class onto the gene clusters and emits clusters/all.genes.clusters.aggregated.refined.tsv."
     }
   ]
 }
