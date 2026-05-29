@@ -80,16 +80,16 @@
       "param": "bins_dir",
       "kind": "dir",
       "subdir": "assemblies/bins",
-      "per_sample_suffix": "/quality_report.tsv",
+      "per_sample_suffix": "/<sample>.quality_report.tsv",
       "produced_by": "BINETTE",
-      "_comment": "Per-sample Binette deliverables (MAG FASTAs + quality_report.tsv + contig_to_bin.tsv) live in assemblies/bins/<sample>/. The anchor file is the QC TSV. Pre-Binette intermediates (input_bins_quality_reports/, temporary_files/) stay in binning/binette/<sample>/ via a separate dual-publishDir branch — they are not part of the reuse contract."
+      "_comment": "Per-sample Binette deliverables live at assemblies/bins/<sample>/: <sample>_binN.fa (MAGs from --prefix <sample>), <sample>.quality_report.tsv, and <sample>.contig_to_bin.tsv (both renamed at publishDir time). The anchor file uses the `<sample>` placeholder which auto_reuse.sh substitutes per sample."
     },
     {
-      "param": "per_contig_tsv_dir",
-      "kind": "dir",
-      "subdir": "integrated_classification/per_contig",
-      "per_sample_suffix": ".contigs.tsv",
-      "produced_by": "MERGE_CONTIG_CLASSIFICATION"
+      "param": "gene_clusters_tsv",
+      "kind": "file",
+      "path": "catalogs/genes/all.genes.clusters.tsv",
+      "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER",
+      "_comment": "Full gene cluster TSV (rep<TAB>member). When present, integrated_classification cross-walks per-contig primary_class onto the gene clusters and emits clusters/all.genes.clusters.aggregated.refined.tsv."
     }
   ]
 }

@@ -102,7 +102,15 @@ auto_reuse_emit_flags() {
                 local missing_count=0
                 while IFS= read -r s; do
                     [[ -z "$s" ]] && continue
-                    if [[ ! -f "$target_dir/${s}${suffix}" ]]; then
+                    # If the suffix contains the literal token `<sample>`,
+                    # substitute the current sample id in. Lets anchor files
+                    # like `/<sample>.quality_report.tsv` resolve per-sample
+                    # to `/SAMPLE-0.quality_report.tsv` etc. Plain suffixes
+                    # without the token (e.g. `/quality_report.tsv`) behave
+                    # exactly as before — the substitution is a no-op when
+                    # the token isn't present.
+                    local resolved_suffix="${suffix//<sample>/$s}"
+                    if [[ ! -f "$target_dir/${s}${resolved_suffix}" ]]; then
                         missing_count=$((missing_count + 1))
                     fi
                 done <<< "$sample_ids"
