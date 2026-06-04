@@ -90,6 +90,20 @@
       "path": "catalogs/genes/all.genes.clusters.tsv",
       "produced_by": "CLUSTER_GENES:MMSEQS_EASY_CLUSTER",
       "_comment": "Full gene cluster TSV (rep<TAB>member). When present, classification cross-walks per-contig primary_class onto the gene clusters and emits clusters/all.genes.clusters.aggregated.refined.tsv."
+    },
+    {
+      "param": "representative_proteins_clusters",
+      "kind": "file",
+      "path": "catalogs/proteins/all.proteins.clusters.tsv",
+      "produced_by": "CLUSTER_PROTEINS:MMSEQS_EASY_CLUSTER",
+      "_comment": "Protein cluster TSV (rep<TAB>member). Consumed by the structures workflow to propagate PHOLD annotations from all-protein-reps to viral-gene-reps that aren't directly in the all-rep set (cluster-membership join)."
+    },
+    {
+      "param": "viral_representative_proteins",
+      "kind": "file",
+      "path": "catalogs/proteins/virus.proteins.representative.fa.gz",
+      "produced_by": "FIND_REPRESENTATIVES",
+      "_comment": "Translations of the viral-gene-cluster reps (subset of all.genes.rep whose members include at least one viral-contig gene). Consumed by structures to guarantee viral coverage in non-'all' scope modes via a top-up step."
     }
   ]
 }
