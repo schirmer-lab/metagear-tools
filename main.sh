@@ -54,9 +54,16 @@ for arg in "$@"; do
     fi
 done
 
-# Detect preview mode and --reuse-outputs, filter both from the arguments.
+# Detect preview mode, --reuse-outputs and --reuse-from; filter all three from the
+# arguments so they never reach nextflow.
 PREVIEW=false
 REUSE_OUTPUTS=false
+# Where to look for reusable outputs. Empty means this run's own --outdir, which is
+# what it always did: reuse only worked when the run executed in the previous run's
+# directory. Naming a directory here separates "where my results go" from "where the
+# work I am reusing already is", so a run can pick up a catalog from anywhere the
+# account can read without also inheriting that run's workspace.
+REUSE_FROM=""
 REMAINING_ARGS=()
 while (( $# > 0 )); do
     case "$1" in
@@ -64,6 +71,17 @@ while (( $# > 0 )); do
             PREVIEW=true
             ;;
         -reuse-outputs|--reuse-outputs)
+            REUSE_OUTPUTS=true
+            ;;
+        -reuse-from|--reuse-from)
+            # Naming a source implies wanting one: --reuse-from alone is enough, and
+            # having to pass both flags would only be a way to get it half-right.
+            REUSE_FROM="${2:-}"
+            REUSE_OUTPUTS=true
+            shift
+            ;;
+        -reuse-from=*|--reuse-from=*)
+            REUSE_FROM="${1#*=}"
             REUSE_OUTPUTS=true
             ;;
         *)
@@ -150,6 +168,16 @@ if [[ "$REUSE_OUTPUTS" == "true" ]]; then
             --outdir) reuse_outdir="${REMAINING_ARGS[i+1]}" ;;
         esac
     done
+
+    # An explicit source wins over the run's own outdir.
+    if [[ -n "$REUSE_FROM" ]]; then
+        if [[ ! -d "$REUSE_FROM" ]]; then
+            echo "metagear: --reuse-from $REUSE_FROM is not a directory" >&2
+            exit 1
+        fi
+        reuse_outdir="$REUSE_FROM"
+        echo "[auto-reuse] reusing from $reuse_outdir (not this run's own outdir)" >&2
+    fi
 
     if [[ -n "$reuse_input" ]]; then
         reuse_flags=()
