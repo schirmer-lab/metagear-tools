@@ -29,6 +29,126 @@ fi
 
 check_metagear_home
 
+# ---------------------------------------------------------------------------- clean
+#
+# Reclaiming a workspace's work directory once its results are final.
+#
+# Nextflow's own `clean` rather than `rm -rf nf_work`, because the work directory is not the whole
+# story: `.nextflow/cache` indexes it, and removing the files while leaving the index makes every
+# later `-resume` in that workspace look for tasks that are no longer there. `nextflow clean`
+# removes both, and knows which directories belong to which session.
+#
+# Safe for the results because every publishDir in this pipeline uses `mode: 'copy'` — the files
+# under results/ are real files, not links into work/. That is what makes this reclaimable at all;
+# a pipeline publishing by symlink could not offer this.
+metagear_clean() {
+    local dir="" dry=true keep="-k" but="" force=false verbose=false
+
+    while (( $# > 0 )); do
+        case "$1" in
+            -n|--dry-run)    dry=true ;;
+            -f|--force)      force=true; dry=false ;;
+            -k|--keep-logs)  keep="-k" ;;
+            --drop-logs)     keep="" ;;
+            --but)           but="$2"; shift ;;
+            --but=*)         but="${1#--but=}" ;;
+            -v|--verbose)    verbose=true ;;
+            -h|--help)
+                cat <<'CLEANHELP'
+Usage: metagear clean [DIRECTORY] [options]
+
+  Reclaim the work directory of a finished workspace. Results are untouched:
+  every output is published by copy, so results/ holds real files.
+
+  DIRECTORY   the workspace to clean (default: the current directory). It is the
+              directory holding .nextflow/ and nf_work/ — one level above results/.
+
+Options:
+  -n, --dry-run     list what would be removed and remove nothing (the default)
+  -f, --force       actually remove it
+  -k, --keep-logs   keep execution history and metadata (default)
+      --drop-logs   remove the history too; the workspace can no longer -resume
+      --but RUN     keep this run's work, clean the rest
+  -v, --verbose     list every task directory instead of just the count
+CLEANHELP
+                return 0 ;;
+            -*)  echo "metagear clean: unknown option $1" >&2; return 1 ;;
+            *)   dir="$1" ;;
+        esac
+        shift
+    done
+
+    dir="${dir:-$PWD}"
+    if [ ! -d "$dir/.nextflow" ]; then
+        echo "metagear clean: $dir is not a workspace — no .nextflow/ there." >&2
+        echo "  Point at the directory holding nf_work/, one level above results/." >&2
+        return 1
+    fi
+
+    # Nextflow refuses to clean a workspace whose session lock is held, and reports it as an
+    # "unable to acquire lock" stack trace that reads like corruption. Nearly always it just means
+    # a run is still going. Catch that here and say so. Scanning /proc for a working directory
+    # inside the workspace needs no lsof and no bookkeeping file to have survived.
+    local live=""
+    local proc cwd
+    for proc in /proc/[0-9]*; do
+        cwd=$(readlink "$proc/cwd" 2>/dev/null) || continue
+        case "$cwd" in
+            "$dir"|"$dir"/*) live="${proc#/proc/}"; break ;;
+        esac
+    done
+    if [ -n "$live" ]; then
+        echo "metagear clean: a run is still using $dir (pid $live)." >&2
+        echo "  Wait for it to finish, or stop it, before reclaiming the work directory." >&2
+        return 1
+    fi
+
+    # errexit and pipefail are inherited from system_utils.sh, so an unguarded `du` on a workspace
+    # whose work directory is already gone would abort the whole command without printing anything.
+    local before=""
+    if [ -d "$dir/nf_work" ]; then
+        before=$(du -sh "$dir/nf_work" 2>/dev/null | cut -f1 || true)
+    fi
+    echo "[clean] workspace $dir"
+    if [ -n "$before" ]; then
+        echo "[clean] work directory currently $before"
+    else
+        echo "[clean] no work directory here — nothing left to reclaim."
+        return 0
+    fi
+
+    local args=( clean -f )
+    [ -n "$keep" ] && args+=( "$keep" )
+    [ -n "$but" ] && args+=( -but "$but" )
+    # -n is Nextflow's own dry run: it prints what it would remove and removes nothing.
+    $dry && args+=( -n )
+
+    # Nextflow prints one line per task directory, which for a real cohort is thousands of lines
+    # of hex. The count is the useful part; keep the list behind --verbose.
+    local out rc
+    out=$(cd "$dir" && nextflow "${args[@]}" 2>&1)
+    rc=$?
+
+    if $verbose; then
+        echo "$out"
+    else
+        echo "$out" | grep -v -e '^Would remove' -e '^Removed' || true
+    fi
+
+    local n
+    n=$(echo "$out" | grep -c -e '^Would remove' -e '^Removed' || true)
+    if $dry; then
+        echo "[clean] $n task directories would be removed, reclaiming about ${before:-0}."
+        echo "[clean] nothing was removed. Re-run with --force to reclaim it."
+    else
+        local after
+        after=$(du -sh "$dir/nf_work" 2>/dev/null | cut -f1 || true)
+        echo "[clean] removed $n task directories; work directory now ${after:-empty}."
+    fi
+    return $rc
+}
+
+
 # Ensure a command is provided
 if [ $# -eq 0 ]; then
     usage
@@ -40,6 +160,13 @@ shift
 # Handle global --help flag
 if [ "$COMMAND" = "--help" ] || [ "$COMMAND" = "-help" ] || [ "$COMMAND" = "help" ]; then
     usage
+fi
+
+# `clean` is a utility, not a workflow, so it is handled before check_command — which validates
+# against the workflow definitions and would reject it.
+if [ "$COMMAND" = "clean" ]; then
+    metagear_clean "$@"
+    exit $?
 fi
 
 check_command "$COMMAND"

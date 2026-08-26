@@ -22,6 +22,10 @@ function usage() {
     echo "Commands:"
     get_workflow_list
     echo ""
+    echo "Utilities:"
+    echo "    clean                Reclaim a finished workspace's work directory. Results are kept."
+    echo "                         See \`metagear clean --help\`."
+    echo ""
     exit 1
 }
 
