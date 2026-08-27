@@ -149,6 +149,81 @@ CLEANHELP
 }
 
 
+# ---------------------------------------------------------------- presets
+#
+# A named sequence of workflows, run in order against the same inputs.
+#
+# The chains people actually run -- gene catalog, then classification, then MAGs, then species
+# pangenomes -- were already expressible: every workflow in them takes the same `--input` and
+# `--outdir`, and every hand-off between them (contigs, genes, bins, representative sequences) is
+# resolved from the shared workspace by `--reuse-outputs`. So a preset is a list of names and
+# nothing more, which is why it lives in workflow_definitions.json as data rather than as code.
+#
+# Deliberately not a Nextflow workflow. Composing these into one DAG would mean rewiring
+# subworkflows that hand off through disk by design, on a stack that is published and validated,
+# to gain a shared resume cache these already have one each of. What it would genuinely buy is
+# overlapping independent steps -- virus and classification both wait only on assembly -- and that
+# is worth measuring before it is worth building.
+metagear_preset() {
+    local preset="$1"; shift
+    local steps=()
+    while IFS= read -r step; do [ -n "$step" ] && steps+=("$step"); done < <(get_preset_steps "$preset")
+
+    local preview=false
+    for arg in "$@"; do
+        case "$arg" in
+            --preview|--dry-run) preview=true ;;
+            -h|--help)
+                echo ""
+                echo "Usage: metagear ${preset} --input <samplesheet> --outdir <directory> [options]"
+                echo ""
+                echo "  $(get_preset_description "$preset")"
+                echo ""
+                echo "  Runs, in order:"
+                printf '    %s\n' "${steps[@]}"
+                echo ""
+                echo "  Each step reuses what the ones before it produced. Options are passed to"
+                echo "  every step, so anything a single workflow accepts works here too."
+                echo ""
+                echo "  --preview   show the plan without running anything"
+                return 0 ;;
+        esac
+    done
+
+    echo "[$preset] $(get_preset_description "$preset")"
+    echo "[$preset] ${#steps[@]} steps: $(printf '%s -> ' "${steps[@]}" | sed 's/ -> $//')"
+
+    # Reuse is what makes a chain a chain: without it every step would start from the reads.
+    # Added once, and only if the caller has not already asked for it.
+    local passthrough=("$@")
+    local reuse=true
+    for arg in "$@"; do [ "$arg" = "--reuse-outputs" ] && reuse=false; done
+    $reuse && passthrough+=("--reuse-outputs")
+
+    local index=0
+    for step in "${steps[@]}"; do
+        index=$((index + 1))
+        echo ""
+        echo "[$preset] step $index/${#steps[@]}: $step"
+        if $preview; then
+            echo "         metagear $step ${passthrough[*]}"
+            continue
+        fi
+        if ! "$UTILITIES_DIR/main.sh" "$step" "${passthrough[@]}"; then
+            echo "" >&2
+            echo "[$preset] $step failed; the steps after it were not started." >&2
+            echo "  Fix what it reported and run the same command again: the steps that already" >&2
+            echo "  finished resume from their own caches rather than starting over." >&2
+            return 1
+        fi
+    done
+
+    echo ""
+    echo "[$preset] all ${#steps[@]} steps finished."
+    return 0
+}
+
+
 # Ensure a command is provided
 if [ $# -eq 0 ]; then
     usage
@@ -162,11 +237,34 @@ if [ "$COMMAND" = "--help" ] || [ "$COMMAND" = "-help" ] || [ "$COMMAND" = "help
     usage
 fi
 
-# `clean` is a utility, not a workflow, so it is handled before check_command — which validates
-# against the workflow definitions and would reject it.
+# Utilities are handled before check_command, which validates against the workflow definitions and
+# would reject anything that is not a workflow. They are dispatched here rather than shipped as
+# separate commands so that `metagear` is the one thing anybody has to know about: running an
+# analysis, reclaiming its scratch, and standing up the machines that do the work are all things
+# you do to the same installation.
 if [ "$COMMAND" = "clean" ]; then
     metagear_clean "$@"
     exit $?
+fi
+
+# A preset is checked before check_command for the same reason the utilities are: it is not a
+# workflow, and the definitions are what check_command validates against.
+if get_presets 2>/dev/null | grep -qx -- "$COMMAND"; then
+    metagear_preset "$COMMAND" "$@"
+    exit $?
+fi
+
+if [ "$COMMAND" = "cluster" ]; then
+    # The cluster scripts keep their own state beside themselves — the pinned hq binary, the
+    # server directory, the share the running workers were sized to — so they are invoked where
+    # they are installed rather than from wherever this happens to be running.
+    cluster_bin="${INSTALL_DIR}/cluster/metagear-cluster"
+    if [ ! -x "$cluster_bin" ]; then
+        echo "metagear cluster: the cluster tools are not installed at $cluster_bin." >&2
+        echo "  Re-run install.sh to add them." >&2
+        exit 1
+    fi
+    exec "$cluster_bin" "$@"
 fi
 
 check_command "$COMMAND"

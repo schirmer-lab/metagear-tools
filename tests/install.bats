@@ -16,15 +16,19 @@
     temp_dir=$(mktemp -d)/metagear
     mkdir -p "$temp_dir"
 
-    # 2) Call install.sh with --install-dir, specifying a version to avoid network calls
+    # 2) Call install.sh with --install-dir, specifying a version to avoid network calls.
+    #    METAGEAR_BIN_DIR keeps the wrapper inside the temporary tree: it now installs to a
+    #    directory the shell already searches rather than to the working directory, and a test
+    #    has no business writing into the real ~/.local/bin.
     install_script="$BATS_TEST_DIRNAME/../install.sh"
-    run bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    bin_dir="$temp_work_dir/bin"
+    run env METAGEAR_BIN_DIR="$bin_dir" bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
 
     # 3) Check that installation completed successfully
     [ "$status" -eq 0 ]
 
-    # 4) Check that metagear wrapper is created in current directory
-    [ -f metagear ]
+    # 4) Check that the metagear wrapper is created where it will be found
+    [ -x "$bin_dir/metagear" ]
 
     # 5) Check that metagear.config, and metagear.env exists in the installation directory
     [ -f "$temp_dir/metagear.config" ]
@@ -173,8 +177,13 @@
     # 3) Check that installation completed successfully
     [ "$status" -eq 0 ]
 
-    # 4) Check that output mentions the correct version
-    [[ "$output" =~ "Version 1.0 confirmed" ]]
+    # 4) Check that the argument was read as a version rather than a path.
+    #
+    #    Either answer from the release check is acceptable here. Insisting on "confirmed" made
+    #    this test depend on a live, unauthenticated GitHub API — sixty requests an hour shared by
+    #    every runner — so it failed for a reason that has nothing to do with argument parsing.
+    [[ "$output" =~ "Version 1.0 confirmed" || "$output" =~ "Could not reach the GitHub API" ]]
+    [[ "$output" =~ "MetaGEAR v1.0" ]]
     [[ "$output" =~ "install MetaGEAR v1.0" ]]
 
     # Clean up

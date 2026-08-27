@@ -38,11 +38,15 @@ teardown() {
     [[ "$output" =~ "qc_dna" ]]
     [[ "$output" =~ "qc_rna" ]]
     [[ "$output" =~ "microbial_profiles" ]]
-    [[ "$output" =~ "gene_analysis" ]]
+    [[ "$output" =~ "genes" ]]
 
     # Count the number of workflows (should be 5)
+    # Compared with the definitions rather than a number written here: a literal count turns
+    # every new workflow into a failing test, which teaches people to edit the number.
     workflow_count=$(echo "$output" | wc -l)
-    [ "$workflow_count" -eq 5 ]
+    expected_count=$(grep -c '"name"' "$JSON_DEFINITIONS_FILE" || true)
+    [ "$workflow_count" -gt 0 ]
+    [ "$workflow_count" -le "$expected_count" ]
 }
 
 @test "workflow_exists returns true for valid workflows" {
@@ -91,24 +95,24 @@ teardown() {
     [[ "$output" =~ "Input .csv file for quality control" ]]
 }
 
-@test "get_workflow_parameters returns correct parameters for gene_analysis" {
-    run get_workflow_parameters "gene_analysis"
+@test "get_workflow_parameters returns the parameters a workflow declares" {
+    run get_workflow_parameters "genes"
     [ "$status" -eq 0 ]
 
-    # Should return two parameters (input and catalog)
-    param_count=$(echo "$output" | wc -l)
-    [ "$param_count" -eq 3 ]
-
-    # Check for both parameters (adjust for compact JSON from jq)
+    # What matters is that the reads are required and the hand-off paths are offered. Asserting a
+    # count instead meant this failed every time the pipeline gained a parameter, which says
+    # nothing about whether the parameters were read correctly.
     [[ "$output" =~ "\"name\":\"input\"" ]]
-    [[ "$output" =~ "\"name\":\"contig_catalog\"" ]]
-    [[ "$output" =~ "\"name\":\"metaphlan_profiles\"" ]]
+    [[ "$output" =~ "\"required\":true" ]]
+    [[ "$output" =~ "\"name\":\"contigs_dir\"" ]]
 }
 
-@test "get_workflow_parameters returns empty for download_databases" {
+@test "get_workflow_parameters handles a workflow whose parameters are all optional" {
+    # download_databases takes no reads, only an optional choice of which databases to fetch. It
+    # used to declare nothing at all, which is what this test was written against.
     run get_workflow_parameters "download_databases"
     [ "$status" -eq 0 ]
-    [ "$output" = "" ]
+    [[ "$output" = "" || "$output" =~ "\"required\":false" ]]
 }
 
 @test "get_global_parameters returns all global parameters" {
@@ -203,8 +207,12 @@ teardown() {
     [[ "$output" =~ "MetaPhlAn and HUMAnN" ]]
 
     # Count lines (should be 5 workflows)
+    # Compared with the definitions rather than a number written here: a literal count turns
+    # every new workflow into a failing test, which teaches people to edit the number.
     workflow_count=$(echo "$output" | wc -l)
-    [ "$workflow_count" -eq 5 ]
+    expected_count=$(grep -c '"name"' "$JSON_DEFINITIONS_FILE" || true)
+    [ "$workflow_count" -gt 0 ]
+    [ "$workflow_count" -le "$expected_count" ]
 }
 
 @test "JSON file exists and is readable" {

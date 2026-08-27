@@ -61,24 +61,35 @@ get_latest_release() {
 }
 
 # Function to check if a version exists as a release
+# Does this release exist?
+#
+# Three answers, not two. "The API said no" and "the API did not answer" are different facts, and
+# reporting the second as the first produces "Version 1.0 does not exist as a release" for a
+# version that plainly does — which is what unauthenticated callers get after sixty requests an
+# hour, CI runners included.
+#
+#   0  it exists
+#   1  it does not
+#   2  could not tell
 check_version_exists() {
     local org="$1"
     local repo="$2"
     local version="$3"
     local api_url="https://api.github.com/repos/${org}/${repo}/releases/tags/${version}"
-    
-    # Try to check if version exists using wget
-    if command -v wget >/dev/null 2>&1; then
-        if wget -q --spider "$api_url" 2>/dev/null; then
-            return 0
-        fi
-    elif command -v curl >/dev/null 2>&1; then
-        if curl -s --head "$api_url" | head -n 1 | grep -q "200 OK"; then
-            return 0
-        fi
+    local code=""
+
+    if command -v curl >/dev/null 2>&1; then
+        code="$(curl -s -o /dev/null -w '%{http_code}' "$api_url" 2>/dev/null || true)"
+    elif command -v wget >/dev/null 2>&1; then
+        # wget prints the status line to stderr; the last response code is the one that counts.
+        code="$(wget -q -S --spider "$api_url" 2>&1 | awk '/^  HTTP\//{c=$2} END{print c}' || true)"
     fi
-    
-    return 1
+
+    case "$code" in
+        200) return 0 ;;
+        404) return 1 ;;
+        *)   return 2 ;;   # 403 rate limit, 5xx, no network, no client
+    esac
 }
 
 WRAPPER_NAME="metagear"
@@ -151,11 +162,18 @@ if [[ -z "$PIPELINE_VERSION" && -z "$CUSTOM_PIPELINE_PATH" ]]; then
 elif [[ -n "$PIPELINE_VERSION" && -z "$CUSTOM_PIPELINE_PATH" ]]; then
     # Validate that the specified version exists
     echo "Checking if version $PIPELINE_VERSION exists..."
-    if ! check_version_exists "$ORGANIZATION" "$PIPELINE_REPOSITORY" "$PIPELINE_VERSION"; then
-        echo "Error: Version $PIPELINE_VERSION does not exist as a release" >&2
-        exit 1
-    fi
-    echo "Version $PIPELINE_VERSION confirmed"
+    # `|| version_check=$?` because errexit is on: a bare call that returns non-zero ends the
+    # script before the case below ever sees which non-zero it was.
+    version_check=0
+    check_version_exists "$ORGANIZATION" "$PIPELINE_REPOSITORY" "$PIPELINE_VERSION" || version_check=$?
+    case $version_check in
+        0) echo "Version $PIPELINE_VERSION confirmed" ;;
+        1) echo "Error: Version $PIPELINE_VERSION does not exist as a release" >&2; exit 1 ;;
+        # Refusing to install would be worse than trying: the download below says plainly whether
+        # the release is there, and the commonest reason for landing here is the anonymous API
+        # allowance, which has nothing to do with whether this version exists.
+        *) echo "  Could not reach the GitHub API to confirm it; continuing anyway." >&2 ;;
+    esac
 fi
 
 
@@ -228,12 +246,46 @@ fi
 
 
 # 5) Create the relocatable wrapper
+#
+# Written where the shell will find it, rather than into the current directory with instructions
+# to move it. `~/.local/bin` is the XDG location, and the stock ~/.profile on Debian and Ubuntu
+# already adds it to PATH when it exists — so for most people this step ends with metagear simply
+# working. Whether that is true here is checked below rather than assumed, because the profile
+# only looks once, at login: a directory created just now is on PATH next time, not this time.
+BIN_DIR="${METAGEAR_BIN_DIR:-${HOME}/.local/bin}"
+mkdir -p "${BIN_DIR}"
+WRAPPER_PATH="${BIN_DIR}/${WRAPPER_NAME}"
+
 cat > "${WRAPPER_PATH}" << EOF
 #!/usr/bin/env bash
 export INSTALL_DIR="${INSTALL_DIR}"
 exec "\${INSTALL_DIR}/utilities/${SCRIPT}" "\$@"
 EOF
 chmod +x "${WRAPPER_PATH}"
+
+# 5b) Install the cluster tools beside the rest
+#
+# They keep state next to themselves — the pinned hq binary, the server directory, the share the
+# running workers were sized to — so they are installed rather than symlinked from a checkout.
+# nodes.conf is this site's own topology and is never overwritten: it is the one file here that
+# describes the machines rather than the software.
+if [ -d "${INSTALL_DIR}/utilities/cluster" ]; then
+  mkdir -p "${INSTALL_DIR}/cluster"
+  cp "${INSTALL_DIR}/utilities/cluster/metagear-cluster" \
+     "${INSTALL_DIR}/utilities/cluster/cluster-worker.sh" \
+     "${INSTALL_DIR}/utilities/cluster/mirror-dbs.sh" "${INSTALL_DIR}/cluster/"
+  chmod +x "${INSTALL_DIR}/cluster/metagear-cluster" \
+           "${INSTALL_DIR}/cluster/cluster-worker.sh" \
+           "${INSTALL_DIR}/cluster/mirror-dbs.sh"
+  if [ ! -f "${INSTALL_DIR}/cluster/nodes.conf" ]; then
+    cp "${INSTALL_DIR}/utilities/templates/cluster-nodes.conf" "${INSTALL_DIR}/cluster/nodes.conf"
+    echo "  Cluster tools installed. Describe this site's machines in"
+    echo "    ${INSTALL_DIR}/cluster/nodes.conf"
+    echo "  before running 'metagear cluster up'."
+  else
+    echo "  Cluster tools updated (nodes.conf left as it was)."
+  fi
+fi
 
 # 6) Create configuration files
 echo ""
@@ -342,6 +394,18 @@ echo "    - Utilities"
 echo "    - Configuration files"
 echo ""
 echo "${YELLOW}Next steps:${RESET}"
-echo "  • Add '${WRAPPER_PATH}' to your \$PATH (e.g. copy/move to /usr/local/bin)"
+# Say which of the two situations this is, rather than giving advice that may already be done.
+case ":${PATH}:" in
+  *":${BIN_DIR}:"*)
+    echo "  • Run 'metagear --help' to start using MetaGEAR"
+    ;;
+  *)
+    echo "  • ${WRAPPER_NAME} is installed at ${WRAPPER_PATH}, which is not on your \$PATH yet."
+    echo "    On most systems it is added automatically at your next login. To use it now:"
+    echo ""
+    echo "        export PATH=\"${BIN_DIR}:\$PATH\""
+    echo ""
+    echo "    Add that line to your ~/.bashrc (or ~/.zshrc) to keep it."
+    ;;
+esac
 echo "  • Review ${INSTALL_DIR}/metagear.config and adjust as needed"
-echo "  • Run './${WRAPPER_NAME}' (or just 'metagear' when it's already in your \$PATH) to start using MetaGEAR"

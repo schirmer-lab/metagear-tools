@@ -11,6 +11,19 @@ else
     JSON_DEFINITIONS_FILE="$SCRIPT_DIR/workflow_definitions.json"
 fi
 
+# Presets resolve separately, and they have to. A workflow is the pipeline's — it is the pipeline
+# that knows what `genes` does — so the installed pipeline's definitions win above. A preset is a
+# statement about how this site strings those workflows together, which is the wrapper's business,
+# and a wrapper-only file would simply be ignored by the rule above whenever a pipeline is present.
+#
+# The pipeline still gets first refusal, so a future one may ship its own; it just has to actually
+# define some rather than merely exist.
+JSON_PRESETS_FILE="$SCRIPT_DIR/workflow_definitions.json"
+if [ -f "$INSTALL_DIR/latest/workflow_definitions.json" ] &&
+   grep -q '"presets"' "$INSTALL_DIR/latest/workflow_definitions.json" 2>/dev/null; then
+    JSON_PRESETS_FILE="$INSTALL_DIR/latest/workflow_definitions.json"
+fi
+
 # Factory-style loader for JSON parser implementations
 # Load appropriate JSON parser based on availability (jq takes priority)
 if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then
