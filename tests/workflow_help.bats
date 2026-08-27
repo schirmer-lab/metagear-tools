@@ -73,24 +73,24 @@ teardown() {
     [ ! -d "results" ]
 }
 
-@test "gene_analysis --help shows help and doesn't trigger pipeline" {
-    # Run gene_analysis --help
-    run bash "$BATS_TEST_DIRNAME/../main.sh" gene_analysis --help
+@test "genes --help shows help and doesn't trigger pipeline" {
+    # Run genes --help
+    run bash "$BATS_TEST_DIRNAME/../main.sh" genes --help
 
     # Check that command succeeded
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear gene_analysis" ]]
+    [[ "$output" =~ "Usage: metagear genes" ]]
     [[ "$output" =~ "Gene centric analysis workflow" ]]
     [[ "$output" =~ "--input" ]]
-    [[ "$output" =~ "--contig_catalog" ]]
-    [[ "$output" =~ "Contigs catalog" ]]
+    [[ "$output" =~ "--contigs_dir" ]]
+    [[ "$output" =~ "Contigs" ]]
 
     # Check that no pipeline files were created
-    [ ! -f "gene_analysis.config" ]
-    [ ! -f "metagear_gene_analysis.sh" ]
-    [ ! -f "input_gene_analysis.csv" ]
+    [ ! -f "genes.config" ]
+    [ ! -f "metagear_genes.sh" ]
+    [ ! -f "input_genes.csv" ]
     [ ! -d "results" ]
 }
 
@@ -215,24 +215,24 @@ teardown() {
     [ ! -d "results" ]
 }
 
-@test "gene_analysis without parameters shows help" {
-    # Run gene_analysis without any parameters
-    run bash "$BATS_TEST_DIRNAME/../main.sh" gene_analysis
+@test "genes without parameters shows help" {
+    # Run genes without any parameters
+    run bash "$BATS_TEST_DIRNAME/../main.sh" genes
 
     # Check that command succeeded
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear gene_analysis" ]]
+    [[ "$output" =~ "Usage: metagear genes" ]]
     [[ "$output" =~ "Gene centric analysis workflow" ]]
     [[ "$output" =~ "--input" ]]
-    [[ "$output" =~ "--contig_catalog" ]]
-    [[ "$output" =~ "Contigs catalog" ]]
+    [[ "$output" =~ "--contigs_dir" ]]
+    [[ "$output" =~ "Contigs" ]]
 
     # Check that no pipeline files were created
-    [ ! -f "gene_analysis.config" ]
-    [ ! -f "metagear_gene_analysis.sh" ]
-    [ ! -f "input_gene_analysis.csv" ]
+    [ ! -f "genes.config" ]
+    [ ! -f "metagear_genes.sh" ]
+    [ ! -f "input_genes.csv" ]
     [ ! -d "results" ]
 }
 

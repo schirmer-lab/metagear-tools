@@ -11,6 +11,14 @@ else
     JSON_DEFINITIONS_FILE="$SCRIPT_DIR/workflow_definitions.json"
 fi
 
+# Presets resolve separately: the rule above prefers the pipeline's definitions, so a wrapper-only
+# presets file would never be read. The pipeline still wins if it defines any of its own.
+JSON_PRESETS_FILE="$SCRIPT_DIR/workflow_definitions.json"
+if [ -f "$INSTALL_DIR/latest/workflow_definitions.json" ] &&
+   grep -q '"presets"' "$INSTALL_DIR/latest/workflow_definitions.json" 2>/dev/null; then
+    JSON_PRESETS_FILE="$INSTALL_DIR/latest/workflow_definitions.json"
+fi
+
 # Factory-style loader for JSON parser implementations
 # Load appropriate JSON parser based on availability (jq takes priority)
 if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then

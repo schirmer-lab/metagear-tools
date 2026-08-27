@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# metagear-cluster — bring this site's HyperQueue cluster up or down.
+#
+#   metagear cluster up [--pct N] | ensure --pct N | down | status | restart
+#                     | jobs | scratch | db | sweep
+#
+# The server runs wherever `up` is invoked, beside the Nextflow head process;
+# workers attach from every machine in nodes.conf. Nothing here needs root.
+# Once `up` reports its workers, run the pipeline across them with:
+#
+#   METAGEAR_MODE=cluster metagear <workflow> --input ... --outdir ...
+set -uo pipefail
+
+CLUSTER_DIR="$(dirname "$(readlink -f "$0")")"
+# Pinned beside the scripts by the installer. Overridable because a site may already have hq on
+# its own terms, and because it makes the rest of this testable without a binary in the checkout.
+HQ_BIN="${METAGEAR_HQ_BIN:-$CLUSTER_DIR/bin/hq}"
+export HQ_SERVER_DIR="${HQ_SERVER_DIR:-$CLUSTER_DIR/server}"
+LOG_DIR="$CLUSTER_DIR/logs"
+
+# Where the workers dial back to. The server runs on whichever machine `up` is invoked from, so
+# this machine's own address is the right default; a site whose workers reach it by some other
+# route sets METAGEAR_CLUSTER_SERVER_IP. It used to default to one particular lab node, which is
+# fine until the file is shared and then quietly wrong everywhere else.
+SERVER_IP="${METAGEAR_CLUSTER_SERVER_IP:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
+CLIENT_PORT="${METAGEAR_CLUSTER_CLIENT_PORT:-39001}"
+WORKER_PORT="${METAGEAR_CLUSTER_WORKER_PORT:-39002}"
+# The share of each node the workers are sized to. Worker sizes are fixed when a
+# worker starts, so this is a property of the cluster, not of a run - which is why
+# `ensure` exists: it is how a run that needs a different share gets one without
+# anybody having to remember to restart by hand.
+PCT="${METAGEAR_RESOURCE_PCT:-${METAGEAR_CLUSTER_PCT:-75}}"
+PCT_FILE="$CLUSTER_DIR/cluster.pct"
+
+# Topology comes from nodes.conf; see cluster-nodes.conf for the fields and what they do.
+NODES=()
+NODES_CONF="${METAGEAR_CLUSTER_NODES:-$CLUSTER_DIR/nodes.conf}"
+if [ -r "$NODES_CONF" ]; then
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        line="$(echo "$line" | xargs 2>/dev/null || true)"
+        [ -n "$line" ] && NODES+=("$line")
+    done < "$NODES_CONF"
+fi
+if [ ${#NODES[@]} -eq 0 ]; then
+    echo "metagear cluster: no nodes configured." >&2
+    echo "  Describe this site's machines in $NODES_CONF." >&2
+    echo "  The installed template lists the fields and gives a worked example." >&2
+    exit 1
+fi
+
+ARGS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --pct)   PCT="${2:-}"; shift 2 ;;
+        --pct=*) PCT="${1#--pct=}"; shift ;;
+        *)       ARGS+=("$1"); shift ;;
+    esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
+case "$PCT" in
+    ''|*[!0-9]*) echo "metagear-cluster: --pct must be a whole number, got '$PCT'" >&2; exit 1 ;;
+esac
+[ "$PCT" -ge 1 ] && [ "$PCT" -le 400 ] || { echo "metagear-cluster: --pct must be between 1 and 400" >&2; exit 1; }
+
+die() { echo "metagear-cluster: $*" >&2; exit 1; }
+
+# What the running workers were actually sized to, which is only knowable from the file `up`
+# wrote. Falls back to the configured share rather than to nothing: before the first `up` there is
+# no file, and "sized at % of each node" reads like a bug in the status line.
+current_pct() { cat "$PCT_FILE" 2>/dev/null || echo "$PCT"; }
+
+# Tasks in flight anywhere on the cluster. `ensure` refuses to restart while this is
+# non-zero: restarting workers kills their tasks, and the run that owns them is very
+# probably not the one asking.
+busy_tasks() {
+    "$HQ_BIN" --output-mode=json job list 2>/dev/null \
+        | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0
+}
+
+server_running() { "$HQ_BIN" server info >/dev/null 2>&1; }
+
+cmd_up() {
+    [[ -x "$HQ_BIN" ]] || die "hq binary not found at $HQ_BIN"
+    mkdir -p "$LOG_DIR"
+
+    if server_running; then
+        echo "server already running — reusing it"
+    else
+        rm -rf "$HQ_SERVER_DIR"
+        mkdir -p "$HQ_SERVER_DIR"
+        setsid nohup "$HQ_BIN" server start \
+            --host "$SERVER_IP" \
+            --client-port "$CLIENT_PORT" \
+            --worker-port "$WORKER_PORT" \
+            > "$LOG_DIR/server.log" 2>&1 < /dev/null &
+        for _ in $(seq 1 15); do
+            sleep 1
+            server_running && break
+        done
+        server_running || { tail -20 "$LOG_DIR/server.log" >&2; die "server failed to start"; }
+        echo "server up on ${SERVER_IP} (client :${CLIENT_PORT}, worker :${WORKER_PORT})"
+    fi
+
+    # Written before the workers start, so a half-started cluster still reports the
+    # share it was asked for rather than the previous one.
+    echo "$PCT" > "$PCT_FILE"
+
+    local failed=0
+    for spec in "${NODES[@]}"; do
+        IFS='|' read -r label target scratch slots db <<< "$spec"
+        local args=( "$HQ_SERVER_DIR" "$SERVER_IP" "$WORKER_PORT" "$PCT" "$label" "$scratch" "$slots" "$db" )
+        if [[ "$target" == "-" ]]; then
+            bash "$CLUSTER_DIR/cluster-worker.sh" "${args[@]}" || failed=1
+        else
+            ssh -o BatchMode=yes -o ConnectTimeout=10 "$target" \
+                "bash $CLUSTER_DIR/cluster-worker.sh ${args[*]}" || failed=1
+        fi
+    done
+
+    echo
+    cmd_status
+    [[ $failed -eq 0 ]] || die "at least one worker failed to start"
+}
+
+# Bring the cluster up at $PCT, doing as little as possible: nothing if it is already
+# there, a plain start if it is down, a restart only if the share has to change and
+# nothing is running. This is what a launcher calls; it never has to reason about
+# whether the cluster exists yet.
+cmd_ensure() {
+    local have
+    have="$(current_pct)"
+    if ! server_running; then
+        echo "cluster is down - starting at ${PCT}%"
+        cmd_up
+        return
+    fi
+    if [[ "$have" == "$PCT" ]]; then
+        echo "cluster already running at ${PCT}%"
+        cmd_status
+        return
+    fi
+    local busy
+    busy="$(busy_tasks)"
+    if [[ "$busy" != "0" ]]; then
+        die "cluster is running at ${have:-unknown}% and $busy job(s) are in flight.
+  Resizing means restarting the workers, which would kill them. Wait for the
+  cluster to drain, or run this cohort at ${have}%."
+    fi
+    echo "resizing cluster from ${have:-unknown}% to ${PCT}% (nothing running)"
+    cmd_down
+    sleep 2
+    cmd_up
+}
+
+cmd_down() {
+    for spec in "${NODES[@]}"; do
+        IFS='|' read -r label target scratch slots db <<< "$spec"
+        local stop='pkill -x hq 2>/dev/null; pkill -f ":127.0.0.1:'"$WORKER_PORT"'" 2>/dev/null; rm -rf /tmp/metagear-hq-server; sleep 1; pgrep -x hq >/dev/null && echo "  $(hostname -s): still running" || echo "  $(hostname -s): stopped"'
+        if [[ "$target" == "-" ]]; then
+            bash -c "$stop"
+        else
+            ssh -o BatchMode=yes -o ConnectTimeout=10 "$target" "$stop"
+        fi
+    done
+}
+
+cmd_status() {
+    if ! server_running; then
+        echo "cluster is DOWN (no server at $HQ_SERVER_DIR)"
+        return 1
+    fi
+    "$HQ_BIN" worker list
+    local n
+    n=$("$HQ_BIN" worker list 2>/dev/null | grep -c RUNNING)
+    echo "workers running: $n  (sized at $(current_pct)% of each node)"
+    echo
+    echo "Runs are single-node unless asked otherwise. Use the whole cluster with:"
+    echo "  METAGEAR_MODE=cluster metagear <workflow> --input ... --outdir ..."
+}
+
+# Task-level view: what is queued, running and finished right now, and which
+# node each running task landed on. Saves exporting HQ_SERVER_DIR by hand.
+cmd_jobs() {
+    server_running || { echo "cluster is DOWN"; return 1; }
+    echo "== jobs by state =="
+    "$HQ_BIN" --output-mode=quiet job list --all 2>/dev/null | awk '{print $2}' | sort | uniq -c | sort -rn
+    echo
+    echo "== running tasks, by node =="
+    local any=0
+    for j in $("$HQ_BIN" --output-mode=quiet job list 2>/dev/null | awk '$2=="RUNNING"{print $1}'); do
+        local nm w
+        nm=$("$HQ_BIN" job info "$j" 2>/dev/null | awk -F'|' '/^\| Name/{gsub(/^ +| +$/,"",$3); print $3}')
+        w=$("$HQ_BIN" task list "$j" 2>/dev/null | awk -F'|' 'NR>3 && NF>3 {gsub(/ /,"",$4); if($4!="") print $4}' | head -1)
+        [ -n "$w" ] && { printf "  %-52s %s\n" "${nm#nf-}" "$w"; any=1; }
+    done
+    [ "$any" = "0" ] && echo "  (nothing running)"
+}
+
+# Local scratch pressure on both nodes. Worth a glance during the first big run:
+# a full scratch disk fails tasks with an errorStrategy that will not retry them.
+cmd_scratch() {
+    for spec in "${NODES[@]}"; do
+        IFS='|' read -r label target scratch slots db <<< "$spec"
+        local probe='printf "  %-9s %-34s " "$(hostname -s)" "'"$scratch"'"; df -h '"$scratch"' 2>/dev/null | awk "NR==2{printf \"%s free of %s, \", \$4, \$2}"; find '"$scratch"' -maxdepth 1 -name "nxf.*" -type d 2>/dev/null | wc -l | xargs printf "%s active task dir(s)\n"'
+        if [[ "$target" == "-" ]]; then bash -c "$probe"
+        else ssh -o BatchMode=yes -o ConnectTimeout=10 "$target" "$probe"; fi
+    done
+}
+
+# Reclaim scratch left behind by killed runs, without restarting anything. Safe while a
+# cohort is in flight: a live task holds its own directory open, so it is skipped.
+cmd_sweep() {
+    for spec in "${NODES[@]}"; do
+        IFS='|' read -r label target scratch slots db <<< "$spec"
+        local doit
+        doit='bash '"$CLUSTER_DIR"'/cluster-worker.sh --sweep-only '"$scratch"
+        if [[ "$target" == "-" ]]; then bash -c "$doit"
+        else ssh -o BatchMode=yes -o ConnectTimeout=10 "$target" "$doit"; fi
+    done
+    cmd_scratch
+}
+
+cmd_db() {
+    for spec in "${NODES[@]}"; do
+        IFS='|' read -r label target scratch slots db <<< "$spec"
+        if [[ "$db" == "-" ]]; then
+            printf "  %-9s %s\n" "$label" "no mirror - databases read from /nfs"
+            continue
+        fi
+        local probe='m='"$db"'.manifest; if [ -f "$m" ]; then printf "  %-9s %-22s %s database(s), %s\n" "$(hostname -s)" "'"$db"'" "$(grep -cv "^#" "$m")" "$(du -sh '"$db"' 2>/dev/null | cut -f1)"; else printf "  %-9s %s\n" "$(hostname -s)" "'"$db"' has no manifest - run mirror-dbs.sh manifest"; fi'
+        if [[ "$target" == "-" ]]; then bash -c "$probe"
+        else ssh -o BatchMode=yes -o ConnectTimeout=10 "$target" "$probe"; fi
+    done
+}
+
+case "${1:-}" in
+    up)      cmd_up ;;
+    ensure)  cmd_ensure ;;
+    db)      cmd_db ;;
+    sweep)   cmd_sweep ;;
+    down)    cmd_down ;;
+    status)  cmd_status ;;
+    jobs)    cmd_jobs ;;
+    scratch) cmd_scratch ;;
+    restart) cmd_down; sleep 2; cmd_up ;;
+    *)       echo "usage: metagear-cluster {up|ensure|down|status|jobs|scratch|db|sweep|restart} [--pct N]" >&2; exit 1 ;;
+esac

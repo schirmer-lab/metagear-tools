@@ -19,8 +19,24 @@ function usage() {
     echo "                         whose outputs already exist on disk."
     echo "       --preview         Generate the launch script without running it."
     echo ""
-    echo "Commands:"
+    echo "Analyses:"
+    echo "    Named sequences of the workflows below, run in order against the same inputs."
+    echo "    Each step reuses what the ones before it produced."
+    local preset steps
+    while IFS= read -r preset; do
+        [ -n "$preset" ] || continue
+        steps="$(get_preset_steps "$preset" | tr '\n' ' ')"
+        printf "    %-20s %s\n" "$preset" "${steps% }"
+    done < <(get_presets 2>/dev/null)
+    echo ""
+    echo "Workflows:"
     get_workflow_list
+    echo ""
+    echo "Utilities:"
+    echo "    clean                Reclaim a finished workspace's work directory. Results are kept."
+    echo "                         See \`metagear clean --help\`."
+    echo "    cluster              Start, stop and inspect the machines runs are spread across."
+    echo "                         up | down | status | restart | ensure | jobs | scratch | db | sweep"
     echo ""
     exit 1
 }

@@ -7,6 +7,57 @@ check_python_available() {
     command -v python3 >/dev/null 2>&1
 }
 
+# A preset is a named sequence of workflows.
+python_get_presets() {
+    local json_file="$1"
+    python3 -c "
+import json
+with open('$json_file', 'r') as f:
+    data = json.load(f)
+for preset in data['metagear']['workflows'].get('presets', []):
+    print(preset['name'])
+"
+}
+
+python_preset_steps() {
+    local json_file="$1"
+    local name="$2"
+    python3 -c "
+import json
+with open('$json_file', 'r') as f:
+    data = json.load(f)
+for preset in data['metagear']['workflows'].get('presets', []):
+    if preset['name'] == '$name':
+        for step in preset['steps']:
+            print(step)
+"
+}
+
+python_preset_description() {
+    local json_file="$1"
+    local name="$2"
+    python3 -c "
+import json
+with open('$json_file', 'r') as f:
+    data = json.load(f)
+for preset in data['metagear']['workflows'].get('presets', []):
+    if preset['name'] == '$name':
+        print(preset.get('description', ''))
+"
+}
+
+get_presets() {
+    python_get_presets "$JSON_PRESETS_FILE"
+}
+
+get_preset_steps() {
+    python_preset_steps "$JSON_PRESETS_FILE" "$1"
+}
+
+get_preset_description() {
+    python_preset_description "$JSON_PRESETS_FILE" "$1"
+}
+
 # Get all available workflows using Python
 python_get_available_workflows() {
     local json_file="$1"

@@ -57,6 +57,24 @@ jq_get_parameter_field() {
     echo "$param_json" | jq -r "if has(\"$field\") then (.$field | if type == \"boolean\" then tostring else . end) else \"\" end"
 }
 
+# A preset is a named sequence of workflows.
+jq_get_presets() {
+    local json_file="$1"
+    jq -r '.metagear.workflows.presets[]?.name' "$json_file"
+}
+
+jq_preset_steps() {
+    local json_file="$1"
+    local name="$2"
+    jq -r --arg name "$name" '.metagear.workflows.presets[]? | select(.name == $name) | .steps[]' "$json_file"
+}
+
+jq_preset_description() {
+    local json_file="$1"
+    local name="$2"
+    jq -r --arg name "$name" '.metagear.workflows.presets[]? | select(.name == $name) | .description' "$json_file"
+}
+
 # Unified interface functions (factory pattern)
 get_available_workflows() {
     jq_get_available_workflows "$JSON_DEFINITIONS_FILE"
@@ -80,4 +98,16 @@ get_global_parameters() {
 
 get_parameter_field() {
     jq_get_parameter_field "$1" "$2"
+}
+
+get_presets() {
+    jq_get_presets "$JSON_PRESETS_FILE"
+}
+
+get_preset_steps() {
+    jq_preset_steps "$JSON_PRESETS_FILE" "$1"
+}
+
+get_preset_description() {
+    jq_preset_description "$JSON_PRESETS_FILE" "$1"
 }
