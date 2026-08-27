@@ -365,38 +365,26 @@
       ],
       "presets": [
         {
-          "name": "bacteria",
-          "description": "The default bacterial path: gene catalog, contig and MAG classification, and species pangenomes.",
-          "steps": [
-            "genes",
-            "classification",
-            "mag",
-            "msp"
-          ]
-        },
-        {
-          "name": "integrated",
-          "description": "The bacterial path with viruses and plasmids alongside it. The fullest picture of a cohort.",
-          "steps": [
-            "genes",
-            "virus",
-            "classification",
-            "mag",
-            "msp"
-          ]
-        },
-        {
-          "name": "reference",
-          "description": "Reference-based profiling only (MetaPhlAn, HUMAnN). No assembly, so much faster and much cheaper.",
+          "name": "profiles",
+          "description": "Reference-based taxonomic and functional profiles (MetaPhlAn, HUMAnN). No assembly, so much faster and much cheaper.",
           "steps": [
             "microbial_profiles"
           ]
         },
         {
-          "name": "end-to-end",
-          "description": "Quality control, then the integrated path. For reads that have not been trimmed yet.",
+          "name": "genomes",
+          "description": "The assembled prokaryotic picture: gene catalog, contig and MAG classification, and species pangenomes. Archaea included \u2014 GTDB-Tk places both domains.",
           "steps": [
-            "qc_dna",
+            "genes",
+            "classification",
+            "mag",
+            "msp"
+          ]
+        },
+        {
+          "name": "microbiome",
+          "description": "Everything in `genomes`, with viruses and plasmids alongside it. The fullest picture of a cohort.",
+          "steps": [
             "genes",
             "virus",
             "classification",

@@ -45,13 +45,13 @@ teardown() {
 @test "the documented paths are offered" {
     run get_presets
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "bacteria" ]]
-    [[ "$output" =~ "integrated" ]]
-    [[ "$output" =~ "reference" ]]
+    [[ "$output" =~ "genomes" ]]
+    [[ "$output" =~ "microbiome" ]]
+    [[ "$output" =~ "profiles" ]]
 }
 
-@test "the bacterial path runs the four workflows in dependency order" {
-    run get_preset_steps "bacteria"
+@test "the assembled path runs the four workflows in dependency order" {
+    run get_preset_steps "genomes"
     [ "$status" -eq 0 ]
     # mag needs classification's bins and msp needs the gene catalog, so the order is not
     # cosmetic: reversing any of it means a step reading a directory that is not written yet.
@@ -64,7 +64,7 @@ teardown() {
 }
 
 @test "a preset shows its plan without running anything" {
-    run bash "$INSTALL_DIR/utilities/main.sh" bacteria --input /tmp/none.csv --outdir /tmp/none --preview
+    run bash "$INSTALL_DIR/utilities/main.sh" genomes --input /tmp/none.csv --outdir /tmp/none --preview
     [ "$status" -eq 0 ]
     [[ "$output" =~ "step 1/4: genes" ]]
     [[ "$output" =~ "step 4/4: msp" ]]
@@ -76,8 +76,8 @@ teardown() {
 }
 
 @test "a preset explains itself" {
-    run bash "$INSTALL_DIR/utilities/main.sh" integrated --help
+    run bash "$INSTALL_DIR/utilities/main.sh" microbiome --help
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: metagear integrated" ]]
+    [[ "$output" =~ "Usage: metagear microbiome" ]]
     [[ "$output" =~ "virus" ]]
 }
