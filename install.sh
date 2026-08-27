@@ -61,16 +61,8 @@ get_latest_release() {
 }
 
 # Function to check if a version exists as a release
-# Does this release exist?
-#
-# Three answers, not two. "The API said no" and "the API did not answer" are different facts, and
-# reporting the second as the first produces "Version 1.0 does not exist as a release" for a
-# version that plainly does — which is what unauthenticated callers get after sixty requests an
-# hour, CI runners included.
-#
-#   0  it exists
-#   1  it does not
-#   2  could not tell
+# 0 exists, 1 does not, 2 could not tell. The third matters: the anonymous API allowance is sixty
+# requests an hour, and reporting exhaustion as "does not exist" is a lie about a real release.
 check_version_exists() {
     local org="$1"
     local repo="$2"
@@ -247,11 +239,8 @@ fi
 
 # 5) Create the relocatable wrapper
 #
-# Written where the shell will find it, rather than into the current directory with instructions
-# to move it. `~/.local/bin` is the XDG location, and the stock ~/.profile on Debian and Ubuntu
-# already adds it to PATH when it exists — so for most people this step ends with metagear simply
-# working. Whether that is true here is checked below rather than assumed, because the profile
-# only looks once, at login: a directory created just now is on PATH next time, not this time.
+# ~/.local/bin: the stock ~/.profile adds it when it exists, but only at login — so whether it is
+# on PATH right now is checked below rather than assumed.
 BIN_DIR="${METAGEAR_BIN_DIR:-${HOME}/.local/bin}"
 mkdir -p "${BIN_DIR}"
 WRAPPER_PATH="${BIN_DIR}/${WRAPPER_NAME}"
@@ -263,12 +252,8 @@ exec "\${INSTALL_DIR}/utilities/${SCRIPT}" "\$@"
 EOF
 chmod +x "${WRAPPER_PATH}"
 
-# 5b) Install the cluster tools beside the rest
-#
-# They keep state next to themselves — the pinned hq binary, the server directory, the share the
-# running workers were sized to — so they are installed rather than symlinked from a checkout.
-# nodes.conf is this site's own topology and is never overwritten: it is the one file here that
-# describes the machines rather than the software.
+# 5b) Install the cluster tools. Copied rather than symlinked because they keep state beside
+#     themselves; nodes.conf is this site's topology and is never overwritten.
 if [ -d "${INSTALL_DIR}/utilities/cluster" ]; then
   mkdir -p "${INSTALL_DIR}/cluster"
   cp "${INSTALL_DIR}/utilities/cluster/metagear-cluster" \

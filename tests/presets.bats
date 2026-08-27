@@ -1,10 +1,6 @@
 #!/usr/bin/env bats
 #
 # Presets: a named sequence of workflows, run in order against the same inputs.
-#
-# They are data rather than code because that is all they need to be — every workflow in a chain
-# takes the same --input and --outdir, and every hand-off between them is resolved from the shared
-# workspace by --reuse-outputs.
 
 setup() {
     temp_dir=$(mktemp -d)

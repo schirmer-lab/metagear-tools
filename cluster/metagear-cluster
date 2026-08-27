@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# metagear-cluster — bring the Node01+Node02 HyperQueue cluster up or down.
+# metagear-cluster — bring this site's HyperQueue cluster up or down.
 #
-#   metagear-cluster up [--pct N] | ensure --pct N | down | status | restart
-#                    | jobs | scratch | db | sweep
+#   metagear cluster up [--pct N] | ensure --pct N | down | status | restart
+#                     | jobs | scratch | db | sweep
 #
-# The server runs on Node02 next to the Nextflow head process; workers attach
-# from both nodes. Nothing here needs root. Once `up` reports two workers,
-# run the pipeline as usual with the cluster gate set:
+# The server runs wherever `up` is invoked, beside the Nextflow head process;
+# workers attach from every machine in nodes.conf. Nothing here needs root.
+# Once `up` reports its workers, run the pipeline across them with:
 #
-#   METAGEAR_CLUSTER=1 metagear genes --input ... --outdir ...
+#   METAGEAR_MODE=cluster metagear <workflow> --input ... --outdir ...
 set -uo pipefail
 
 CLUSTER_DIR="$(dirname "$(readlink -f "$0")")"
@@ -32,31 +32,7 @@ WORKER_PORT="${METAGEAR_CLUSTER_WORKER_PORT:-39002}"
 PCT="${METAGEAR_RESOURCE_PCT:-${METAGEAR_CLUSTER_PCT:-75}}"
 PCT_FILE="$CLUSTER_DIR/cluster.pct"
 
-# label | ssh target ("-" for the local/server node) | scratch root | scratch slots | db mirror
-#
-# `diskio` is a *rationing* resource, not a pin. Both nodes carry it, so the
-# processes that request it run on either — what differs is how many may run at
-# once. Node01's /data is a 34 TB array with 9.2 TB free, so it is effectively
-# unlimited there; Node02's /localssd is 1.7 TB shared with everything else it
-# runs, so 8 is a cap that protects it.
-#
-# This replaced a hard pin to Node01. HyperQueue has no soft placement, so a pin
-# means "only there" — and a phase containing only pinned work then leaves the
-# other node idle. Rationing keeps both nodes working while still keeping the
-# bulk of the scratch on the disk that has room for it. 8 is a starting point,
-# not a measurement: watch `metagear-cluster scratch` on the first big cohort
-# and move it.
-#
-# Node02 is listed first deliberately. HyperQueue offers work to the
-# first-registered worker before the others, so the 144-core node gets first
-# refusal on everything.
-# The db mirror field is the root of a local copy of /nfs/data/database, or "-" for a
-# node that has none. Node01 holds one on the same 34 TB array as its scratch; Node02's
-# 1.7 TB /localssd has no room for 1 TB of databases on top of scratch, so it keeps
-# reading them over NFS. Create or refresh a mirror with mirror-dbs.sh on that node.
-# Read from nodes.conf rather than written here: this is the one part of the cluster that is a
-# property of the site rather than of MetaGEAR, and a file everyone edits is not a file anyone can
-# share. The format is the same table, one node per line; see cluster-nodes.conf for the fields.
+# Topology comes from nodes.conf; see cluster-nodes.conf for the fields and what they do.
 NODES=()
 NODES_CONF="${METAGEAR_CLUSTER_NODES:-$CLUSTER_DIR/nodes.conf}"
 if [ -r "$NODES_CONF" ]; then

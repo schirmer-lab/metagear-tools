@@ -29,18 +29,8 @@ fi
 
 check_metagear_home
 
-# ---------------------------------------------------------------------------- clean
-#
-# Reclaiming a workspace's work directory once its results are final.
-#
-# Nextflow's own `clean` rather than `rm -rf nf_work`, because the work directory is not the whole
-# story: `.nextflow/cache` indexes it, and removing the files while leaving the index makes every
-# later `-resume` in that workspace look for tasks that are no longer there. `nextflow clean`
-# removes both, and knows which directories belong to which session.
-#
-# Safe for the results because every publishDir in this pipeline uses `mode: 'copy'` — the files
-# under results/ are real files, not links into work/. That is what makes this reclaimable at all;
-# a pipeline publishing by symlink could not offer this.
+# Nextflow's own `clean`, not rm -rf: .nextflow/cache indexes the work dir and must go with it.
+# Safe for results because every publishDir here is mode: 'copy'.
 metagear_clean() {
     local dir="" dry=true keep="-k" but="" force=false verbose=false
 
@@ -85,10 +75,8 @@ CLEANHELP
         return 1
     fi
 
-    # Nextflow refuses to clean a workspace whose session lock is held, and reports it as an
-    # "unable to acquire lock" stack trace that reads like corruption. Nearly always it just means
-    # a run is still going. Catch that here and say so. Scanning /proc for a working directory
-    # inside the workspace needs no lsof and no bookkeeping file to have survived.
+    # Nextflow reports a held session lock as an "unable to acquire lock" stack trace that reads
+    # like corruption; nearly always a run is simply still going. /proc needs no lsof.
     local live=""
     local proc cwd
     for proc in /proc/[0-9]*; do
@@ -149,21 +137,8 @@ CLEANHELP
 }
 
 
-# ---------------------------------------------------------------- presets
-#
-# A named sequence of workflows, run in order against the same inputs.
-#
-# The chains people actually run -- gene catalog, then classification, then MAGs, then species
-# pangenomes -- were already expressible: every workflow in them takes the same `--input` and
-# `--outdir`, and every hand-off between them (contigs, genes, bins, representative sequences) is
-# resolved from the shared workspace by `--reuse-outputs`. So a preset is a list of names and
-# nothing more, which is why it lives in workflow_definitions.json as data rather than as code.
-#
-# Deliberately not a Nextflow workflow. Composing these into one DAG would mean rewiring
-# subworkflows that hand off through disk by design, on a stack that is published and validated,
-# to gain a shared resume cache these already have one each of. What it would genuinely buy is
-# overlapping independent steps -- virus and classification both wait only on assembly -- and that
-# is worth measuring before it is worth building.
+# A named sequence of workflows. Every step takes the same --input/--outdir and hands off
+# through the shared workspace, so a preset is just a list of names -- see workflow_definitions.json.
 metagear_preset() {
     local preset="$1"; shift
     local steps=()
@@ -237,27 +212,19 @@ if [ "$COMMAND" = "--help" ] || [ "$COMMAND" = "-help" ] || [ "$COMMAND" = "help
     usage
 fi
 
-# Utilities are handled before check_command, which validates against the workflow definitions and
-# would reject anything that is not a workflow. They are dispatched here rather than shipped as
-# separate commands so that `metagear` is the one thing anybody has to know about: running an
-# analysis, reclaiming its scratch, and standing up the machines that do the work are all things
-# you do to the same installation.
+# Utilities and presets are dispatched before check_command, which only knows about workflows.
 if [ "$COMMAND" = "clean" ]; then
     metagear_clean "$@"
     exit $?
 fi
 
-# A preset is checked before check_command for the same reason the utilities are: it is not a
-# workflow, and the definitions are what check_command validates against.
 if get_presets 2>/dev/null | grep -qx -- "$COMMAND"; then
     metagear_preset "$COMMAND" "$@"
     exit $?
 fi
 
 if [ "$COMMAND" = "cluster" ]; then
-    # The cluster scripts keep their own state beside themselves — the pinned hq binary, the
-    # server directory, the share the running workers were sized to — so they are invoked where
-    # they are installed rather than from wherever this happens to be running.
+    # Invoked where installed: the scripts keep state beside themselves (hq binary, server dir).
     cluster_bin="${INSTALL_DIR}/cluster/metagear-cluster"
     if [ ! -x "$cluster_bin" ]; then
         echo "metagear cluster: the cluster tools are not installed at $cluster_bin." >&2

@@ -1,11 +1,6 @@
 #!/usr/bin/env bats
 #
-# The cluster tools, reached through `metagear cluster`.
-#
-# They lived outside version control until now — three scripts in ~/.metagear/cluster, versioned
-# by .bak files beside them. What made them unshareable was the site baked into them: one lab's
-# node addresses, scratch paths and account name. That is a config file now, and these tests are
-# mostly about that separation holding.
+# The cluster tools, reached through `metagear cluster`. Mostly about the site staying out of them.
 
 setup() {
     temp_dir=$(mktemp -d)

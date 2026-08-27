@@ -7,9 +7,7 @@ check_python_available() {
     command -v python3 >/dev/null 2>&1
 }
 
-# Get all available workflows using Python
-python_# A preset is a named sequence of workflows. Same shape as the jq backend so the two stay
-# interchangeable.
+# A preset is a named sequence of workflows.
 python_get_presets() {
     local json_file="$1"
     python3 -c "
@@ -60,7 +58,8 @@ get_preset_description() {
     python_preset_description "$JSON_PRESETS_FILE" "$1"
 }
 
-get_available_workflows() {
+# Get all available workflows using Python
+python_get_available_workflows() {
     local json_file="$1"
     python3 -c "
 import json

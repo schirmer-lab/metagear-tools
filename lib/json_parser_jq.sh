@@ -57,8 +57,7 @@ jq_get_parameter_field() {
     echo "$param_json" | jq -r "if has(\"$field\") then (.$field | if type == \"boolean\" then tostring else . end) else \"\" end"
 }
 
-# A preset is a named sequence of workflows. Read the same way as everything else here so both
-# backends stay interchangeable.
+# A preset is a named sequence of workflows.
 jq_get_presets() {
     local json_file="$1"
     jq -r '.metagear.workflows.presets[]?.name' "$json_file"
