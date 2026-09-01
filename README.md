@@ -2,7 +2,7 @@
 
 Command-line wrapper and installer for [**MetaGEAR Workflows**](https://github.com/schirmer-lab/metagear-pipeline) — a Nextflow / nf-core pipeline for end-to-end microbiome metagenomic analysis.
 
-This repository is part of the [**MetaGEAR Platform**](https://schirmer-lab.github.io/metagear/), which comprises:
+This repository is part of the [**MetaGEAR Platform**](https://metagear-platform.schirmerlab.de/), which comprises:
 
 - **MetaGEAR Workflows** — the Nextflow pipeline that produces harmonized outputs (formerly *metagear-pipeline*)
 - **MetaGEAR Explorer** — the web portal at <https://metagear-explorer.schirmerlab.de> (formerly *MetaGEAR Web*)
@@ -15,7 +15,7 @@ This repository is part of the [**MetaGEAR Platform**](https://schirmer-lab.gith
 3. **Download databases**: `metagear download_databases`
 4. **Run a workflow**: `metagear qc_dna --input samples.csv`
 
-For full instructions, see the [📖 documentation](https://schirmer-lab.github.io/metagear/).
+For full instructions, see the [📖 documentation](https://metagear-platform.schirmerlab.de/).
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ The installer auto-detects available CPUs/RAM and sets resource limits to roughl
 
 > ⚠️  Review and customize `~/.metagear/metagear.config` and `~/.metagear/metagear.env` before running workflows.
 
-➡️  See the [Installation Guide](https://schirmer-lab.github.io/metagear/quick-start/installation/) for full setup instructions.
+➡️  See the [Installation Guide](https://metagear-platform.schirmerlab.de/get-started) for full setup instructions.
 
 ## Basic usage
 
@@ -65,22 +65,21 @@ SAMPLE-01,/path/to/sample1_R1.fastq.gz,/path/to/sample1_R2.fastq.gz
 SAMPLE-02,/path/to/sample2_R1.fastq.gz,/path/to/sample2_R2.fastq.gz
 ```
 
-➡️  See the [Usage Guide](https://schirmer-lab.github.io/metagear/quick-start/usage/) for the complete reference.
+➡️  See the [Usage Guide](https://metagear-platform.schirmerlab.de/tools) for the complete reference.
 
 ## Documentation
 
-- 🚀 [Quick Start](https://schirmer-lab.github.io/metagear/)
-- ⚙️  [Installation](https://schirmer-lab.github.io/metagear/quick-start/installation/)
-- 🔧 [Configuration](https://schirmer-lab.github.io/metagear/quick-start/configuration/)
-- 📋 [Usage Examples](https://schirmer-lab.github.io/metagear/quick-start/usage/)
-- 🔬 [Workflows](https://schirmer-lab.github.io/metagear/workflows/)
-- 🛠️  [Development](https://schirmer-lab.github.io/metagear/developers/)
+- 🚀 [Get started](https://metagear-platform.schirmerlab.de/get-started)
+- 🔧 [MetaGEAR Tools reference](https://metagear-platform.schirmerlab.de/tools)
+- 🔬 [Workflows](https://metagear-platform.schirmerlab.de/workflows)
+- 📰 [Release news](https://metagear-platform.schirmerlab.de/news)
+- 📑 [How to cite](https://metagear-platform.schirmerlab.de/cite)
 
 The documentation site is built and published from [`schirmer-lab/metagear-platform`](https://github.com/schirmer-lab/metagear-platform).
 
 ## Support
 
-- 📖 [Documentation](https://schirmer-lab.github.io/metagear/)
+- 📖 [Documentation](https://metagear-platform.schirmerlab.de/)
 - 🐛 [MetaGEAR Workflows issues](https://github.com/schirmer-lab/metagear-pipeline/issues)
 - 🐛 [MetaGEAR Tools issues](https://github.com/schirmer-lab/metagear-tools/issues)
 

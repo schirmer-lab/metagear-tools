@@ -2,12 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+Versions are date-based (`YY.MM`, or `YY.MM.N` for a fix within the same month) and are released
+in lockstep with [metagear-pipeline](https://github.com/schirmer-lab/metagear-pipeline): the two
+share a version number because the wrapper mirrors the pipeline's workflow and parameter definitions.
 
 ## [Unreleased]
 
+## [26.09] - 2026-09-01
+
+Paired with pipeline 26.09. Adopts date-based versioning; the jump from 1.0.1 is a change of scheme,
+not 25 major versions.
+
 ### Added
+- Presets that run several workflows in order in one workspace, each reusing what the ones before it
+  produced: `profiles`, `genomes`, `microbiome`.
+- Support for the pipeline's new workflows in `workflow_definitions.json`: `virus`, `classification`,
+  `mag`, `msp`, `structures`, and `genes` in place of `gene_analysis`.
 - `metagear --version` (also `-version` / `version`) prints semver + install-time build number (YYMMDD), plus resolved utilities/pipeline paths so symlinked dev installs are obvious.
 - `VERSION` file at the repo root holds the wrapper's semver.
 - Install-time build stamp written to `$INSTALL_DIR/.build` on every install/re-install.
@@ -72,8 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation improvements and fixes
 - Various bugfixes throughout development
 
-[Unreleased]: https://github.com/schirmer-lab/metagear/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/schirmer-lab/metagear/releases/tag/v1.0.0
-
-[Unreleased]: https://github.com/schirmer-lab/metagear/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/schirmer-lab/metagear-tools/compare/26.09...HEAD
+[26.09]: https://github.com/schirmer-lab/metagear-tools/releases/tag/26.09
 [1.0.1]: https://github.com/schirmer-lab/metagear/releases/tag/v1.0.1
+[1.0.0]: https://github.com/schirmer-lab/metagear/releases/tag/v1.0.0

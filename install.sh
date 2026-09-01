@@ -32,6 +32,10 @@ INSTALL_DIR="${HOME}/.metagear"
 ORGANIZATION="schirmer-lab"
 PIPELINE_REPOSITORY="metagear-pipeline"
 PIPELINE_VERSION=""  # Will be set to latest release or user-specified version
+# Used only when the GitHub API cannot be reached to ask what the latest release is -- usually the
+# anonymous rate allowance. Must name a tag that exists on PIPELINE_REPOSITORY: the pre-26.09 tags
+# live on metagear-pipeline-legacy and 404 here. Bump with VERSION at each release.
+FALLBACK_PIPELINE_VERSION="26.09"
 UTILS_REPOSITORY="metagear-tools"
 SCRIPT="main.sh"
 
@@ -148,8 +152,9 @@ if [[ -z "$PIPELINE_VERSION" && -z "$CUSTOM_PIPELINE_PATH" ]]; then
     if PIPELINE_VERSION=$(get_latest_release "$ORGANIZATION" "$PIPELINE_REPOSITORY"); then
         echo "Found latest release: $PIPELINE_VERSION"
     else
-        echo "Warning: Could not get latest release, falling back to version 1.0"
-        PIPELINE_VERSION="1.0"
+        echo "Warning: could not reach the GitHub API to ask for the latest release;" >&2
+        echo "         falling back to ${FALLBACK_PIPELINE_VERSION}. Pass a version explicitly to override." >&2
+        PIPELINE_VERSION="$FALLBACK_PIPELINE_VERSION"
     fi
 elif [[ -n "$PIPELINE_VERSION" && -z "$CUSTOM_PIPELINE_PATH" ]]; then
     # Validate that the specified version exists
