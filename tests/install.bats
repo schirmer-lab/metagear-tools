@@ -1,5 +1,11 @@
 #!/usr/bin/env bats
 
+# A published pipeline release these tests can install. It must exist on
+# schirmer-lab/metagear-pipeline: the pre-26.09 tags stayed on
+# metagear-pipeline-legacy when the name moved, which is what broke the old
+# hardcoded "1.0". Bump when convenient; any live release works.
+PINNED_PIPELINE_VERSION="26.09"
+
 # Test Cases:
 # 1. install.sh creates wrapper and installation files
 # 2. install.sh skips existing config files
@@ -22,7 +28,7 @@
     #    has no business writing into the real ~/.local/bin.
     install_script="$BATS_TEST_DIRNAME/../install.sh"
     bin_dir="$temp_work_dir/bin"
-    run env METAGEAR_BIN_DIR="$bin_dir" bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    run env METAGEAR_BIN_DIR="$bin_dir" bash "$install_script" --install-dir "$temp_dir" --pipeline "$PINNED_PIPELINE_VERSION"
 
     # 3) Check that installation completed successfully
     [ "$status" -eq 0 ]
@@ -56,7 +62,7 @@
 
     # 3) Call install.sh with --install-dir, specifying a version to avoid network calls
     install_script="$BATS_TEST_DIRNAME/../install.sh"
-    run bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    run bash "$install_script" --install-dir "$temp_dir" --pipeline "$PINNED_PIPELINE_VERSION"
 
     # 4) Check that installation completed successfully
     [ "$status" -eq 0 ]
@@ -96,7 +102,7 @@
 
     # 2) Call install.sh with --install-dir (no existing config files), specifying a version to avoid network calls
     install_script="$BATS_TEST_DIRNAME/../install.sh"
-    run bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    run bash "$install_script" --install-dir "$temp_dir" --pipeline "$PINNED_PIPELINE_VERSION"
 
     # 3) Check that installation completed successfully
     [ "$status" -eq 0 ]
@@ -137,7 +143,7 @@
 
     # 3) Call install.sh with --install-dir, specifying a version to avoid network calls
     install_script="$BATS_TEST_DIRNAME/../install.sh"
-    run bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    run bash "$install_script" --install-dir "$temp_dir" --pipeline "$PINNED_PIPELINE_VERSION"
 
     # 4) Check that installation completed successfully
     [ "$status" -eq 0 ]
@@ -172,7 +178,7 @@
 
     # 2) Call install.sh with --pipeline specifying a version
     install_script="$BATS_TEST_DIRNAME/../install.sh"
-    run bash "$install_script" --install-dir "$temp_dir" --pipeline "1.0"
+    run bash "$install_script" --install-dir "$temp_dir" --pipeline "$PINNED_PIPELINE_VERSION"
 
     # 3) Check that installation completed successfully
     [ "$status" -eq 0 ]
@@ -182,9 +188,9 @@
     #    Either answer from the release check is acceptable here. Insisting on "confirmed" made
     #    this test depend on a live, unauthenticated GitHub API — sixty requests an hour shared by
     #    every runner — so it failed for a reason that has nothing to do with argument parsing.
-    [[ "$output" =~ "Version 1.0 confirmed" || "$output" =~ "Could not reach the GitHub API" ]]
-    [[ "$output" =~ "MetaGEAR v1.0" ]]
-    [[ "$output" =~ "install MetaGEAR v1.0" ]]
+    [[ "$output" =~ "Version $PINNED_PIPELINE_VERSION confirmed" || "$output" =~ "Could not reach the GitHub API" ]]
+    [[ "$output" =~ "MetaGEAR v$PINNED_PIPELINE_VERSION" ]]
+    [[ "$output" =~ "install MetaGEAR v$PINNED_PIPELINE_VERSION" ]]
 
     # Clean up
     cd "$original_dir"
