@@ -68,10 +68,10 @@ if [ "$1" = "release" ]; then
 
     # Update the links at the bottom
     echo "" >> "$CHANGELOG_PATH"
-    echo "[Unreleased]: https://github.com/schirmer-lab/metagear/compare/v$VERSION...HEAD" >> "$CHANGELOG_PATH"
-    echo "[$VERSION]: https://github.com/schirmer-lab/metagear/releases/tag/v$VERSION" >> "$CHANGELOG_PATH"
+    echo "[Unreleased]: https://github.com/schirmer-lab/metagear-tools/compare/$VERSION...HEAD" >> "$CHANGELOG_PATH"
+    echo "[$VERSION]: https://github.com/schirmer-lab/metagear-tools/releases/tag/$VERSION" >> "$CHANGELOG_PATH"
 
-    echo "Changelog updated for release v$VERSION"
+    echo "Changelog updated for release $VERSION"
     exit 0
 fi
 
