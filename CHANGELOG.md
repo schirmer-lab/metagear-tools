@@ -15,6 +15,16 @@ Paired with pipeline 26.09. Adopts date-based versioning; the jump from 1.0.1 is
 not 25 major versions.
 
 ### Added
+- `metagear cluster` — brings a HyperQueue cluster up or down across the machines listed in
+  `nodes.conf`, with `up`/`ensure`/`down`/`status`/`restart`/`jobs`/`scratch`/`db`/`sweep`. The server
+  runs beside the Nextflow head process and workers attach from every node; nothing needs root.
+  `METAGEAR_MODE=cluster` spreads a run over it, `single` (the default) keeps it on one machine.
+- `cluster/mirror-dbs.sh` to replicate the reference databases to each node's local scratch, and
+  `templates/cluster-nodes.conf` as the starting point for a site's node list.
+- `metagear clean` reclaims a finished workspace's work directory via Nextflow's own `clean`, refusing
+  while a run is still using it.
+- `--reuse-from` names an earlier run's workspace to reuse outputs from, rather than only the current
+  `--outdir`.
 - Presets that run several workflows in order in one workspace, each reusing what the ones before it
   produced: `profiles`, `genomes`, `microbiome`.
 - Support for the pipeline's new workflows in `workflow_definitions.json`: `virus`, `classification`,
