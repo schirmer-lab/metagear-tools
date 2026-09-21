@@ -20,7 +20,11 @@ if [ -f "$INSTALL_DIR/latest/workflow_definitions.json" ] &&
 fi
 
 # Factory-style loader for JSON parser implementations
-# Load appropriate JSON parser based on availability (jq takes priority)
+# Load appropriate JSON parser based on availability (jq takes priority).
+# Chosen here and never inherited: an exported JSON_PARSER skipped the fallback below,
+# leaving jq's implementations live on a machine without jq.
+JSON_PARSER=""
+
 if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then
     source "$SCRIPT_DIR/json_parser_jq.sh"
     if check_jq_available; then
@@ -28,7 +32,7 @@ if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then
     fi
 fi
 
-if [ -z "${JSON_PARSER:-}" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
+if [ -z "$JSON_PARSER" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
     source "$SCRIPT_DIR/json_parser_python.sh"
     if check_python_available; then
         JSON_PARSER="python"
@@ -36,9 +40,16 @@ if [ -z "${JSON_PARSER:-}" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
 fi
 
 # Error if no parser is available
-if [ -z "${JSON_PARSER:-}" ]; then
+if [ -z "$JSON_PARSER" ]; then
     echo "Error: Neither 'jq' nor 'python3' is available for JSON parsing." >&2
     echo "Please install one of them to use JSON workflow definitions." >&2
+    exit 1
+fi
+
+# A parser that exists is not yet a parser that works. Without this, a definitions file
+# it cannot read makes every command report itself as not found.
+if [ -z "$(get_available_workflows 2>/dev/null)" ]; then
+    echo "Error: $JSON_PARSER read no workflow from $JSON_DEFINITIONS_FILE." >&2
     exit 1
 fi
 
