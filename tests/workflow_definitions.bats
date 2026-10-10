@@ -85,14 +85,45 @@ teardown() {
     run get_workflow_parameters "qc_dna"
     [ "$status" -eq 0 ]
 
-    # Should return one parameter (input)
     param_count=$(echo "$output" | wc -l)
-    [ "$param_count" -eq 1 ]
+    [ "$param_count" -eq 3 ]
 
     # Check that the parameter contains the expected fields (adjust for compact JSON from jq)
     [[ "$output" =~ "\"name\":\"input\"" ]]
     [[ "$output" =~ "\"required\":true" ]]
     [[ "$output" =~ "Input .csv file for quality control" ]]
+
+    # Each assay names its own reference databases, so one metagear.config can carry both.
+    [[ "$output" =~ "\"name\":\"qc_dna_refdb\"" ]]
+    [[ ! "$output" =~ "\"name\":\"qc_rna_refdb\"" ]]
+}
+
+@test "qc_rna declares its own reference databases, not qc_dna's" {
+    run get_workflow_parameters "qc_rna"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "\"name\":\"qc_rna_refdb\"" ]]
+    [[ ! "$output" =~ "\"name\":\"qc_dna_refdb\"" ]]
+}
+
+@test "every workflow declares a group the help can sort it under" {
+    while IFS= read -r workflow; do
+        [ -n "$workflow" ] || continue
+        run get_workflow_group "$workflow"
+        [ "$status" -eq 0 ]
+        [[ "$output" =~ ^(workflow|utility|setup)$ ]]
+    done < <(get_available_workflows)
+}
+
+@test "get_workflow_list filters by group" {
+    run get_workflow_list utility
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "easy_map" ]]
+    [[ ! "$output" =~ "qc_dna" ]]
+
+    run get_workflow_list setup
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "download_databases" ]]
+    [[ ! "$output" =~ "easy_map" ]]
 }
 
 @test "get_workflow_parameters returns the parameters a workflow declares" {

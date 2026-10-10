@@ -37,6 +37,14 @@ jq_get_workflow_description() {
     jq -r --arg name "$workflow_name" '.metagear.workflows.definitions[] | select(.name == $name) | .description // ""' "$json_file"
 }
 
+# Which section of the help a workflow belongs to. Defaults to "workflow" so a
+# definitions file from an older pipeline still lists everything.
+jq_get_workflow_group() {
+    local json_file="$1"
+    local workflow_name="$2"
+    jq -r --arg name "$workflow_name" '.metagear.workflows.definitions[] | select(.name == $name) | .group // "workflow"' "$json_file"
+}
+
 # Get workflow parameters using jq
 jq_get_workflow_parameters() {
     local json_file="$1"
@@ -86,6 +94,10 @@ workflow_exists() {
 
 get_workflow_description() {
     jq_get_workflow_description "$JSON_DEFINITIONS_FILE" "$1"
+}
+
+get_workflow_group() {
+    jq_get_workflow_group "$JSON_DEFINITIONS_FILE" "$1"
 }
 
 get_workflow_parameters() {

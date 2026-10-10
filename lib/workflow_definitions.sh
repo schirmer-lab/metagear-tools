@@ -201,19 +201,25 @@ validate_workflow_and_parameters() {
 }
 
 # Function to get workflow list for usage display
+# Lists workflows, optionally only those in one group (workflow, utility, setup).
 get_workflow_list() {
-    if [ -f "$JSON_DEFINITIONS_FILE" ]; then
-        # Use JSON definitions
-        while IFS= read -r workflow; do
-            [ -z "$workflow" ] && continue
-            local desc
-            desc=$(get_workflow_description "$workflow")
-            printf "  %-20s %s\n" "$workflow" "$desc"
-        done < <(get_available_workflows)
-    else
+    local only_group="${1:-}"
+
+    if [ ! -f "$JSON_DEFINITIONS_FILE" ]; then
         echo "Error: workflow definitions file not found at $JSON_DEFINITIONS_FILE" >&2
         return 1
     fi
+
+    local workflow desc group
+    while IFS= read -r workflow; do
+        [ -z "$workflow" ] && continue
+        if [ -n "$only_group" ]; then
+            group=$(get_workflow_group "$workflow")
+            [ "${group:-workflow}" = "$only_group" ] || continue
+        fi
+        desc=$(get_workflow_description "$workflow")
+        printf "    %-20s %s\n" "$workflow" "$desc"
+    done < <(get_available_workflows)
 }
 
 # Function to display workflow-specific help
