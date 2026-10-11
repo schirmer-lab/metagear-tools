@@ -285,3 +285,41 @@ teardown() {
     run bash -n "$TEST_TEMP_DIR/lib/json_parser_python.sh"
     [ "$status" -eq 0 ]
 }
+
+@test "workflow_takes_assay only for the workflow that declares one" {
+    run workflow_takes_assay "qc"
+    [ "$status" -eq 0 ]
+
+    run workflow_takes_assay "genes"
+    [ "$status" -ne 0 ]
+
+    # A utility that takes no input at all must never be asked for an assay.
+    run workflow_takes_assay "download_databases"
+    [ "$status" -ne 0 ]
+}
+
+@test "args_contain_assay recognises both spellings and the equals form" {
+    run args_contain_assay --input a.csv --assay rna
+    [ "$status" -eq 0 ]
+
+    run args_contain_assay --assay=rna
+    [ "$status" -eq 0 ]
+
+    run args_contain_assay -assay dna
+    [ "$status" -eq 0 ]
+
+    run args_contain_assay --input a.csv --outdir out
+    [ "$status" -ne 0 ]
+}
+
+@test "args_input_path finds the samplesheet, or says there is none" {
+    run args_input_path --input reads.csv --outdir out
+    [ "$output" = "reads.csv" ]
+
+    run args_input_path --input=reads.csv
+    [ "$output" = "reads.csv" ]
+
+    # download_databases and friends: nothing to detect from, and nothing to complain about.
+    run args_input_path --databases all
+    [ -z "$output" ]
+}

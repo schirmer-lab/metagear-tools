@@ -315,6 +315,36 @@ if [ ${#ALIAS_ARGS[@]} -gt 0 ]; then
     REMAINING_ARGS=("${ALIAS_ARGS[@]}" ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"})
 fi
 
+# Work out the assay from the reads when the workflow takes one and nobody said.
+#
+# Only then: a workflow with no `assay` parameter is left alone, which is every utility and
+# every workflow that takes no input at all. What is measured is how concentrated the library
+# is -- see lib/detect_assay.py -- and the answer is used only when it is unambiguous. An
+# uncertain reading stops the run and asks, because the failure mode of guessing is a run that
+# finishes, reports normally, and filtered against the wrong references.
+source "${UTILITIES_DIR}/lib/workflow_definitions.sh"
+if workflow_takes_assay "$COMMAND" && ! args_contain_assay ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"}; then
+    detect_input=$(args_input_path ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"})
+    if [ -n "$detect_input" ] && [ -r "$detect_input" ] && command -v python3 >/dev/null 2>&1; then
+        detected=$("${UTILITIES_DIR}/lib/detect_assay.py" "$detect_input" 2>/dev/null || echo unknown)
+        case "$detected" in
+            dna|rna)
+                echo "Detected a $(echo "$detected" | tr '[:lower:]' '[:upper:]') library; running with --assay $detected."
+                echo "  Pass --assay to say so yourself and skip this check."
+                REMAINING_ARGS=(--assay "$detected" "${REMAINING_ARGS[@]}")
+                ;;
+            *)
+                echo "Error: could not tell whether these are DNA or RNA libraries." >&2
+                echo "  Re-run with --assay dna or --assay rna." >&2
+                exit 1
+                ;;
+        esac
+    elif [ -n "$detect_input" ]; then
+        echo "Error: $COMMAND needs --assay dna or --assay rna." >&2
+        exit 1
+    fi
+fi
+
 # mkdir -p $LAUNCH_DIR/.metagear
 
 # Regenerate per-user resource override config from YAML, if both the YAML

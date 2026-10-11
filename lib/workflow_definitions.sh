@@ -290,3 +290,37 @@ show_workflow_help() {
 
     echo ""
 }
+
+# Does this workflow have to be told which library it is cleaning? Read off the pipeline's own
+# parameter list, so a workflow that gains or loses an assay needs no change here.
+workflow_takes_assay() {
+    get_workflow_parameters "$1" 2>/dev/null | grep -q '"name":"assay"'
+}
+
+# Did the caller already name one? Both spellings, because both reach nextflow.
+args_contain_assay() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --assay|-assay|--assay=*|-assay=*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# The --input the caller gave, or empty. Only used to decide whether there is anything to look
+# at: a workflow invoked without one has nothing to detect from.
+args_input_path() {
+    local previous=""
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --input=*|-input=*) printf '%s' "${arg#*=}"; return 0 ;;
+        esac
+        case "$previous" in
+            --input|-input) printf '%s' "$arg"; return 0 ;;
+        esac
+        previous="$arg"
+    done
+    return 0
+}

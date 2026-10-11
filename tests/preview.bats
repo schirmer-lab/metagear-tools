@@ -109,3 +109,46 @@ cleanup_dev_environment() {
     rm -rf "$temp_work_dir"
     cleanup_dev_environment
 }
+
+@test "qc works the assay out from the reads when nobody says" {
+    temp_work_dir=$(mktemp -d)
+    original_dir="$PWD"
+    cd "$temp_work_dir"
+    setup_dev_environment
+
+    # Real DNA libraries from the MRI test batch. What separates them from RNA is how
+    # concentrated the library is, which is measurable from the reads alone.
+    sheet=/nfs/data/cohorts/internal/hms_mri_2026/test_batch_prebiomics/QC/input.csv
+    if [ ! -r "$sheet" ]; then skip "cohort reads not mounted"; fi
+
+    run bash "$BATS_TEST_DIRNAME/../main.sh" qc --input "$sheet" --outdir out --preview
+
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Detected a DNA library" ]]
+    grep -q -- "--assay dna" metagear_qc.sh
+
+    cd "$original_dir"
+    rm -rf "$temp_work_dir"
+    cleanup_dev_environment
+}
+
+@test "a sheet it cannot read as either stops the run instead of guessing" {
+    temp_work_dir=$(mktemp -d)
+    original_dir="$PWD"
+    cd "$temp_work_dir"
+    setup_dev_environment
+
+    # Points at nothing, so there is no evidence either way. A default here would be a run
+    # that finishes, reports normally, and filtered against the wrong references.
+    printf 'sample,fastq_1,fastq_2\nX,/nowhere/a.fastq.gz,/nowhere/b.fastq.gz\n' > empty.csv
+
+    run bash "$BATS_TEST_DIRNAME/../main.sh" qc --input empty.csv --outdir out --preview
+
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "could not tell whether these are DNA or RNA" ]]
+    [ ! -f metagear_qc.sh ]
+
+    cd "$original_dir"
+    rm -rf "$temp_work_dir"
+    cleanup_dev_environment
+}
