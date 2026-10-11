@@ -207,6 +207,19 @@ fi
 COMMAND="$1"
 shift
 
+# qc_dna and qc_rna became `qc --assay`. Kept as aliases rather than removed: they are in
+# scripts, in cron entries and in people's shell history, and a rename is not a reason for any of
+# those to stop working. The assay is held here and added to the arguments further down rather
+# than spliced into "$@" now, so that bare `metagear qc_dna` still prints help instead of
+# becoming a one-argument command line that fails on a missing --input.
+ALIAS_ARGS=()
+case "$COMMAND" in
+    qc_dna|qc_rna)
+        ALIAS_ARGS=(--assay "${COMMAND#qc_}")
+        COMMAND="qc"
+        ;;
+esac
+
 # Handle global --help flag
 if [ "$COMMAND" = "--help" ] || [ "$COMMAND" = "-help" ] || [ "$COMMAND" = "help" ]; then
     usage
@@ -294,6 +307,12 @@ if [ ${#REMAINING_ARGS[@]} -eq 0 ]; then
         exit 0
     fi
     # If no required parameters, continue with execution (empty REMAINING_ARGS is fine)
+fi
+
+# First, because the parameters are collapsed into a map keyed by name, so a later
+# --assay from the user replaces the one the alias put here.
+if [ ${#ALIAS_ARGS[@]} -gt 0 ]; then
+    REMAINING_ARGS=("${ALIAS_ARGS[@]}" ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"})
 fi
 
 # mkdir -p $LAUNCH_DIR/.metagear

@@ -35,8 +35,8 @@ teardown() {
 
     # Check that all expected workflows are returned
     [[ "$output" =~ "download_databases" ]]
-    [[ "$output" =~ "qc_dna" ]]
-    [[ "$output" =~ "qc_rna" ]]
+    [[ "$output" =~ "qc" ]]
+    [[ "$output" =~ "qc" ]]
     [[ "$output" =~ "microbial_profiles" ]]
     [[ "$output" =~ "genes" ]]
 
@@ -50,7 +50,7 @@ teardown() {
 }
 
 @test "workflow_exists returns true for valid workflows" {
-    run workflow_exists "qc_dna"
+    run workflow_exists "qc"
     [ "$status" -eq 0 ]
 
     run workflow_exists "microbial_profiles"
@@ -66,9 +66,9 @@ teardown() {
 }
 
 @test "get_workflow_description returns correct description" {
-    run get_workflow_description "qc_dna"
+    run get_workflow_description "qc"
     [ "$status" -eq 0 ]
-    [ "$output" = "Quality Control for DNA" ]
+    [ "$output" = "Quality Control" ]
 
     run get_workflow_description "microbial_profiles"
     [ "$status" -eq 0 ]
@@ -81,12 +81,12 @@ teardown() {
     [ "$output" = "" ]
 }
 
-@test "get_workflow_parameters returns correct parameters for qc_dna" {
-    run get_workflow_parameters "qc_dna"
+@test "get_workflow_parameters returns correct parameters for qc" {
+    run get_workflow_parameters "qc"
     [ "$status" -eq 0 ]
 
     param_count=$(echo "$output" | wc -l)
-    [ "$param_count" -eq 3 ]
+    [ "$param_count" -eq 5 ]
 
     # Check that the parameter contains the expected fields (adjust for compact JSON from jq)
     [[ "$output" =~ "\"name\":\"input\"" ]]
@@ -95,14 +95,15 @@ teardown() {
 
     # Each assay names its own reference databases, so one metagear.config can carry both.
     [[ "$output" =~ "\"name\":\"qc_dna_refdb\"" ]]
-    [[ ! "$output" =~ "\"name\":\"qc_rna_refdb\"" ]]
 }
 
-@test "qc_rna declares its own reference databases, not qc_dna's" {
-    run get_workflow_parameters "qc_rna"
+@test "qc keeps a reference database per assay rather than one shared key" {
+    # The user'"'"'s metagear.config is merged last, so a single key for "this run'"'"'s databases"
+    # would always win over the assay the run actually asked for.
+    run get_workflow_parameters "qc"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "\"name\":\"qc_rna_refdb\"" ]]
-    [[ ! "$output" =~ "\"name\":\"qc_dna_refdb\"" ]]
+    [[ "$output" =~ "\"name\":\"assay\"" ]]
 }
 
 @test "every workflow declares a group the help can sort it under" {
@@ -118,11 +119,13 @@ teardown() {
     run get_workflow_list utility
     [ "$status" -eq 0 ]
     [[ "$output" =~ "easy_map" ]]
-    [[ ! "$output" =~ "qc_dna" ]]
-
-    run get_workflow_list setup
-    [ "$status" -eq 0 ]
+    # Setup held download_databases alone and was retired into utilities.
     [[ "$output" =~ "download_databases" ]]
+    [[ ! "$output" =~ "qc" ]]
+
+    run get_workflow_list workflow
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "qc" ]]
     [[ ! "$output" =~ "easy_map" ]]
 }
 
@@ -164,7 +167,7 @@ teardown() {
 }
 
 @test "validate_workflow_and_parameters accepts valid parameters" {
-    run validate_workflow_and_parameters "qc_dna" --input "test.csv" --outdir "results"
+    run validate_workflow_and_parameters "qc" --input "test.csv" --outdir "results"
     [ "$status" -eq 0 ]
 
     # Check that output contains expected parameter assignments
@@ -179,19 +182,19 @@ teardown() {
 }
 
 @test "validate_workflow_and_parameters rejects invalid parameters" {
-    run validate_workflow_and_parameters "qc_dna" --input "test.csv" --invalid-param "value"
+    run validate_workflow_and_parameters "qc" --input "test.csv" --invalid-param "value"
     [ "$status" -eq 1 ]
-    [[ "$output" =~ "Error: Invalid option: --invalid-param for qc_dna workflow." ]]
+    [[ "$output" =~ "Error: Invalid option: --invalid-param for qc workflow." ]]
 }
 
 @test "validate_workflow_and_parameters requires mandatory parameters" {
-    run validate_workflow_and_parameters "qc_dna" --outdir "results"
+    run validate_workflow_and_parameters "qc" --outdir "results"
     [ "$status" -eq 1 ]
-    [[ "$output" =~ "Error: --input is required for qc_dna workflow." ]]
+    [[ "$output" =~ "Error: --input is required for qc workflow." ]]
 }
 
 @test "validate_workflow_and_parameters accepts global parameters" {
-    run validate_workflow_and_parameters "qc_dna" --input "test.csv" --debug "true" --help ""
+    run validate_workflow_and_parameters "qc" --input "test.csv" --debug "true" --help ""
     [ "$status" -eq 0 ]
 
     # Check that global parameters are included
@@ -201,7 +204,7 @@ teardown() {
 }
 
 @test "validate_workflow_and_parameters applies default values" {
-    run validate_workflow_and_parameters "qc_dna" --input "test.csv"
+    run validate_workflow_and_parameters "qc" --input "test.csv"
     [ "$status" -eq 0 ]
 
     # Should include default outdir and debug values
@@ -220,7 +223,7 @@ teardown() {
 }
 
 @test "validate_workflow_and_parameters rejects parameter without value" {
-    run validate_workflow_and_parameters "qc_dna" --input
+    run validate_workflow_and_parameters "qc" --input
     [ "$status" -eq 1 ]
     [[ "$output" =~ "Error: Option --input requires a value." ]]
 }
@@ -232,8 +235,8 @@ teardown() {
     # Check that all workflows are listed with descriptions
     [[ "$output" =~ "download_databases" ]]
     [[ "$output" =~ "Install Databases" ]]
-    [[ "$output" =~ "qc_dna" ]]
-    [[ "$output" =~ "Quality Control for DNA" ]]
+    [[ "$output" =~ "qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
     [[ "$output" =~ "microbial_profiles" ]]
     [[ "$output" =~ "MetaPhlAn and HUMAnN" ]]
 
