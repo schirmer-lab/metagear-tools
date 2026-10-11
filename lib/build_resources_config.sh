@@ -23,7 +23,10 @@
 # Constraints (anything outside these is unsupported by this parser):
 #   - Top-level keys are exactly `labels:` and/or `processes:`.
 #   - Each entry on a single line, flow style ({ … }), one indent level.
-#   - Field names: cpus, memory_gb, time_h, note, label. All optional.
+#   - Field names: cpus, memory_gb, memory_expr, time_h, note, label. All
+#     optional. `memory_expr` is a Groovy expression emitted verbatim, for a
+#     process whose memory tracks its input rather than being a flat number;
+#     it excludes memory_gb.
 #   - No `,` inside any value (the parser splits the body on `,`).
 #   - No YAML anchors/aliases/multi-line scalars.
 #   - `#` starts a comment to end of line (outside quotes).
@@ -85,7 +88,7 @@ trim() {
 # one and read the remainder as further keys.
 parse_body() {
     local body="$1"
-    _cpus="" _memory_gb="" _time_h="" _note=""
+    _cpus="" _memory_gb="" _memory_expr="" _time_h="" _note=""
     local -a pairs=()
     local field="" quote="" ch
     local i
@@ -117,8 +120,9 @@ parse_body() {
             elif [[ "$v" =~ ^\'(.*)\'$ ]]; then v="${BASH_REMATCH[1]}"
             fi
             case "$k" in
-                cpus)      _cpus="$v" ;;
-                memory_gb) _memory_gb="$v" ;;
+                cpus)        _cpus="$v" ;;
+                memory_gb)   _memory_gb="$v" ;;
+                memory_expr) _memory_expr="$v" ;;
                 time_h)    _time_h="$v" ;;
                 note)      _note="$v" ;;
                 label)     ;;  # informational only — module declares the actual label
@@ -134,8 +138,12 @@ declare -a OUT_OVERRIDES=()
 emit_block() {
     local kind="$1" name="$2"
     # Skip if no resource directives at all (e.g. only `note:`).
-    if [[ -z "$_cpus" && -z "$_memory_gb" && -z "$_time_h" ]]; then
+    if [[ -z "$_cpus" && -z "$_memory_gb" && -z "$_memory_expr" && -z "$_time_h" ]]; then
         return
+    fi
+    if [[ -n "$_memory_gb" && -n "$_memory_expr" ]]; then
+        echo "Error: ${name} sets both memory_gb and memory_expr; pick one." >&2
+        exit 1
     fi
     local -a block=()
     if [[ "$kind" == "label" ]]; then
@@ -145,7 +153,8 @@ emit_block() {
     fi
     [[ -n "$_note"      ]] && block+=( "        // ${_note}" )
     [[ -n "$_cpus"      ]] && block+=( "        cpus   = { ${_cpus} * task.attempt }" )
-    [[ -n "$_memory_gb" ]] && block+=( "        memory = { ${_memory_gb}.GB * task.attempt }" )
+    [[ -n "$_memory_gb"   ]] && block+=( "        memory = { ${_memory_gb}.GB * task.attempt }" )
+    [[ -n "$_memory_expr" ]] && block+=( "        memory = { (${_memory_expr}) * task.attempt }" )
     [[ -n "$_time_h"    ]] && block+=( "        time   = { ${_time_h}.h * task.attempt }" )
     block+=( "    }" "" )
 
@@ -185,7 +194,7 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
             # `processes:` row — emit a withName: only if there's an override
             # (any of cpus/memory_gb/time_h). Label-only rows are informational
             # documentation; no withName needed.
-            if [[ -n "$_cpus" || -n "$_memory_gb" || -n "$_time_h" ]]; then
+            if [[ -n "$_cpus" || -n "$_memory_gb" || -n "$_memory_expr" || -n "$_time_h" ]]; then
                 emit_block "override" "$name"
                 : $((n_overrides++))
             fi
