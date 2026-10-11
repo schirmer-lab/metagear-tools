@@ -7,17 +7,23 @@ dominated by a handful of transcripts; a shotgun DNA library is not, even when a
 is host. The share of reads taken by the ten commonest sequences measures that directly, from
 the reads alone, in a few seconds.
 
-Measured on this lab's own cohorts, under exactly the constants below: all 20 DNA samples
-of hms_mri_2026/test_batch_prebiomics, and 20 RNA from kch-followup/90-1119906168.
+Measured on this lab's own cohorts, under exactly the constants below.
 
-    top-10 share   DNA  0.021% - 0.590%      RNA  3.02% - 24.3%
+    DNA   all 20 samples of hms_mri_2026/test_batch_prebiomics      0.021% - 0.590%
+    RNA   12 from kch-followup (first pass)                         3.02%  - 28.3%
+    RNA   20 from kch-followup/90-1119906168 (second pass)          3.834% - 24.3%
 
-A gap of 5.1x. An earlier calibration on 12 hand-picked DNA samples put the DNA ceiling at
-0.069% and claimed a 43x gap; measuring the whole batch found one sample 8.5x above the rest.
-MUNICH-001-382_Vagina scores 0.590%: 4.6 M read pairs, 92% host, 1.2% surviving QC. It is the
-low-biomass over-amplified library this docstring already warned was untested, and it is
-concentrated for reasons that have nothing to do with being RNA. It is also real data from the
-lab's own test batch, so the thresholds have to hold for it.
+The thresholds are set against the LOWEST RNA sample ever observed here, 3.02% from the
+12-sample pass, not against the 3.834% floor of the larger pass: a sample seen once is still a
+sample. That gives a 5.1x gap to the DNA ceiling, and 1.5x of margin under RNA_ABOVE. Measured
+against the 20-sample pass alone those figures would be 6.5x and 1.9x.
+
+An earlier calibration on 12 hand-picked DNA samples put the DNA ceiling at 0.069% and claimed
+a 43x gap. Measuring the whole batch found one sample 8.5x above the rest: MUNICH-001-382_Vagina
+at 0.590%, being 4.6 M read pairs, 92% host, 1.2% surviving QC. It is the low-biomass
+over-amplified library this docstring already warned was untested, concentrated for reasons that
+have nothing to do with being RNA, and it is real data from the lab's own test batch, so the
+thresholds have to hold for it.
 
 The margin is consequently 1.7x above the highest DNA sample and 1.5x below the lowest RNA one,
 not the 3x claimed before. That is thin enough that `--assay` remains the dependable answer and
@@ -42,7 +48,7 @@ import sys
 # favoured. A library landing between them is one nobody here has measured, and that is exactly
 # the case to refuse rather than round to the nearer side.
 DNA_BELOW = 0.010  # 1.0%, 1.7x above the highest DNA sample measured (0.590%)
-RNA_ABOVE = 0.020  # 2.0%, 1.5x below the lowest RNA sample measured (3.02%)
+RNA_ABOVE = 0.020  # 2.0%, 1.5x below the lowest RNA sample ever measured (3.02%, 12-sample pass)
 
 READS = 200_000  # per sample, after the skip
 SKIP = 100_000  # the first tile of a flow cell is not representative of the run
