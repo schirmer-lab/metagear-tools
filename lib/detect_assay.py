@@ -7,21 +7,27 @@ dominated by a handful of transcripts; a shotgun DNA library is not, even when a
 is host. The share of reads taken by the ten commonest sequences measures that directly, from
 the reads alone, in a few seconds.
 
-Measured on this lab's own cohorts, under exactly the constants below (12 DNA samples from
-hms_mri_2026, 12 RNA from kch-followup):
+Measured on this lab's own cohorts, under exactly the constants below: all 20 DNA samples
+of hms_mri_2026/test_batch_prebiomics, and 20 RNA from kch-followup/90-1119906168.
 
-    top-10 share   DNA  0.021% - 0.069%      RNA  3.02% - 28.3%
+    top-10 share   DNA  0.021% - 0.590%      RNA  3.02% - 24.3%
 
-A gap of 43x. The closest DNA sample to it was MUNICH-001-518_Vagina, which was 67% host, so
-host content alone does not push a DNA library into the RNA range. The thresholds below sit
-about 3x clear of the nearest measured sample on each side, and anything landing between them
-is reported as unknown rather than guessed. The caller must then be told which it is: a wrong
-answer here is silent, and the run that follows looks entirely normal.
+A gap of 5.1x. An earlier calibration on 12 hand-picked DNA samples put the DNA ceiling at
+0.069% and claimed a 43x gap; measuring the whole batch found one sample 8.5x above the rest.
+MUNICH-001-382_Vagina scores 0.590%: 4.6 M read pairs, 92% host, 1.2% surviving QC. It is the
+low-biomass over-amplified library this docstring already warned was untested, and it is
+concentrated for reasons that have nothing to do with being RNA. It is also real data from the
+lab's own test batch, so the thresholds have to hold for it.
 
-Two cohorts from two facilities is the whole of the evidence. The mechanism is biological
-rather than instrumental, which is why it is worth trusting at all, but an amplicon library, a
-single-isolate genome at depth or an over-amplified low-biomass library would all be
-concentrated for reasons that have nothing to do with being RNA, and none was tested.
+The margin is consequently 1.7x above the highest DNA sample and 1.5x below the lowest RNA one,
+not the 3x claimed before. That is thin enough that `--assay` remains the dependable answer and
+this is a convenience; anything landing between the thresholds is reported as unknown rather
+than guessed, and the caller is told which sample was responsible.
+
+Two cohorts from two facilities is still the whole of the evidence. The mechanism is biological
+rather than instrumental, which is why it is worth trusting at all, but an amplicon library or a
+single-isolate genome at depth would both be concentrated without being RNA, and neither was
+tested.
 
 Prints "dna", "rna" or "unknown", and exits 0 unless something went wrong reading the input.
 """
@@ -35,8 +41,8 @@ import sys
 # Either side of the gap, with the same multiplicative margin on each so neither class is
 # favoured. A library landing between them is one nobody here has measured, and that is exactly
 # the case to refuse rather than round to the nearer side.
-DNA_BELOW = 0.002  # 0.2%, about 3x above the highest DNA sample measured (0.069%)
-RNA_ABOVE = 0.010  # 1.0%, about 3x below the lowest RNA sample measured (3.02%)
+DNA_BELOW = 0.010  # 1.0%, 1.7x above the highest DNA sample measured (0.590%)
+RNA_ABOVE = 0.020  # 2.0%, 1.5x below the lowest RNA sample measured (3.02%)
 
 READS = 200_000  # per sample, after the skip
 SKIP = 100_000  # the first tile of a flow cell is not representative of the run
@@ -78,10 +84,17 @@ def main() -> int:
         print("unknown")
         return 0
 
-    scores = [s for s in (concentration(r["fastq_1"].strip()) for r in rows[: args.samples]) if s]
-    if not scores:
+    # Keep the sample name alongside the score: when this refuses, the one thing the caller
+    # needs is which library was responsible, not an aggregate they cannot act on.
+    scored = [
+        (r.get("sample") or r["fastq_1"], s)
+        for r, s in ((r, concentration(r["fastq_1"].strip())) for r in rows[: args.samples])
+        if s
+    ]
+    if not scored:
         print("unknown")
         return 0
+    scores = [s for _, s in scored]
 
     # Every sample inspected has to agree. A sheet whose rows disagree is either mixed or is a
     # case the thresholds do not cover, and both want a person rather than a default.
@@ -93,9 +106,20 @@ def main() -> int:
         answer = "unknown"
 
     print(answer)
-    worst = max(scores)
+    name, worst = max(scored, key=lambda pair: pair[1])
+    if answer == "unknown":
+        # Name the sample, its score and the band it missed. The caller turns this into a
+        # stopped run, and "could not tell" with no number is not something anyone can act on.
+        print(
+            f"detect-assay: cannot tell DNA from RNA. {name} has a top-10 read share of "
+            f"{100 * worst:.3f}%, between the DNA ceiling ({100 * DNA_BELOW:.1f}%) and the RNA "
+            f"floor ({100 * RNA_ABOVE:.1f}%). Pass --assay dna or --assay rna.",
+            file=sys.stderr,
+        )
+        return 0
     print(
-        f"detect-assay: top-10 read share {100 * worst:.3f}% over {len(scores)} sample(s)",
+        f"detect-assay: {answer}, top-10 read share {100 * worst:.3f}% over "
+        f"{len(scores)} sample(s), highest {name}",
         file=sys.stderr,
     )
     return 0
