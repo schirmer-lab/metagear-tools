@@ -78,13 +78,33 @@ trim() {
 }
 
 # Parse a flow-style body "k: v, k: v, …" into the caller's _cpus, _memory_gb,
-# _time_h, _note vars. Unknown keys are ignored.
+# _memory_expr, _time_h, _note vars. Unknown keys are ignored.
+#
+# Splits on commas that are outside quotes, so a note or an expression may
+# contain one. Splitting on every comma silently truncated a note at its first
+# one and read the remainder as further keys.
 parse_body() {
     local body="$1"
     _cpus="" _memory_gb="" _time_h="" _note=""
-    local IFS=','
-    local -a pairs=( $body )
-    unset IFS
+    local -a pairs=()
+    local field="" quote="" ch
+    local i
+    for (( i = 0; i < ${#body}; i++ )); do
+        ch="${body:i:1}"
+        if [[ -n "$quote" ]]; then
+            [[ "$ch" == "$quote" ]] && quote=""
+            field+="$ch"
+        elif [[ "$ch" == '"' || "$ch" == "'" ]]; then
+            quote="$ch"
+            field+="$ch"
+        elif [[ "$ch" == ',' ]]; then
+            pairs+=( "$field" )
+            field=""
+        else
+            field+="$ch"
+        fi
+    done
+    pairs+=( "$field" )
     local pair k v
     for pair in "${pairs[@]}"; do
         pair="$(trim "$pair")"
