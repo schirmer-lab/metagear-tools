@@ -201,7 +201,7 @@ validate_workflow_and_parameters() {
 }
 
 # Function to get workflow list for usage display
-# Lists workflows, optionally only those in one group (workflow, utility, setup).
+# Lists workflows, optionally only those in one group (workflow, utility).
 get_workflow_list() {
     local only_group="${1:-}"
 

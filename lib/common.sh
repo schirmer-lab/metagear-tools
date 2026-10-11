@@ -32,9 +32,6 @@ function usage() {
     echo "Workflows:"
     get_workflow_list workflow
     echo ""
-    echo "Setup:"
-    get_workflow_list setup
-    echo ""
     echo "Utilities:"
     get_workflow_list utility
     echo "    clean                Reclaim a finished workspace's work directory. Results are kept."
