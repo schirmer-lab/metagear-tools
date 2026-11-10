@@ -22,6 +22,10 @@ Thumbs.db
 scratch/
 .scratch/
 
+# Bytecode CPython writes beside lib/*.py when main.sh invokes them.
+__pycache__/
+*.pyc
+
 # Backup client litter. The TSM/Spectrum Protect client writes these into whatever
 # directory it happens to run in, which includes this checkout.
 /citScanOutput.xml
