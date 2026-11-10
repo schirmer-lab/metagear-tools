@@ -100,6 +100,22 @@ for workflow in data['metagear']['workflows']['definitions']:
 "
 }
 
+# Which section of the help a workflow belongs to. Defaults to "workflow" so a
+# definitions file from an older pipeline still lists everything.
+python_get_workflow_group() {
+    local json_file="$1"
+    local workflow_name="$2"
+    python3 -c "
+import json
+with open('$json_file', 'r') as f:
+    data = json.load(f)
+for workflow in data['metagear']['workflows']['definitions']:
+    if workflow['name'] == '$workflow_name':
+        print(workflow.get('group') or 'workflow')
+        break
+"
+}
+
 # Get workflow parameters using Python
 python_get_workflow_parameters() {
     local json_file="$1"
@@ -139,6 +155,10 @@ workflow_exists() {
 
 get_workflow_description() {
     python_get_workflow_description "$JSON_DEFINITIONS_FILE" "$1"
+}
+
+get_workflow_group() {
+    python_get_workflow_group "$JSON_DEFINITIONS_FILE" "$1"
 }
 
 get_workflow_parameters() {

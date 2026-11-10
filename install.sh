@@ -35,7 +35,7 @@ PIPELINE_VERSION=""  # Will be set to latest release or user-specified version
 # Used only when the GitHub API cannot be reached to ask what the latest release is -- usually the
 # anonymous rate allowance. Must name a tag that exists on PIPELINE_REPOSITORY: the pre-26.09 tags
 # live on metagear-pipeline-legacy and 404 here. Bump with VERSION at each release.
-FALLBACK_PIPELINE_VERSION="26.09"
+FALLBACK_PIPELINE_VERSION="26.11"
 UTILS_REPOSITORY="metagear-tools"
 SCRIPT="main.sh"
 

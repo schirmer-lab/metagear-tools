@@ -4,9 +4,9 @@ Command-line wrapper and installer for [**MetaGEAR Workflows**](https://github.c
 
 This repository is part of the [**MetaGEAR Platform**](https://metagear-platform.schirmerlab.de/), which comprises:
 
-- **MetaGEAR Workflows** — the Nextflow pipeline that produces harmonized outputs (formerly *metagear-pipeline*)
-- **MetaGEAR Explorer** — the web portal at <https://metagear-explorer.schirmerlab.de> (formerly *MetaGEAR Web*)
-- **MetaGEAR Tools** *(this repo)* — the CLI wrapper and installer that drives the workflows
+- **MetaGEAR Workflows** — the Nextflow pipeline that produces harmonized outputs (formerly _metagear-pipeline_)
+- **MetaGEAR Explorer** — the web portal at <https://metagear-explorer.schirmerlab.de> (formerly _MetaGEAR Web_)
+- **MetaGEAR Tools** _(this repo)_ — the CLI wrapper and installer that drives the workflows
 
 ## Quick start
 
@@ -39,9 +39,9 @@ curl -L http://get-metagear.schirmerlab.de | bash -s -- --pipeline 1.0
 
 The installer auto-detects available CPUs/RAM and sets resource limits to roughly 80% of the host (capped at 48 CPUs and 80 GB).
 
-> ⚠️  Review and customize `~/.metagear/metagear.config` and `~/.metagear/metagear.env` before running workflows.
+> ⚠️ Review and customize `~/.metagear/metagear.config` and `~/.metagear/metagear.env` before running workflows.
 
-➡️  See the [Installation Guide](https://metagear-platform.schirmerlab.de/get-started) for full setup instructions.
+➡️ See the [Installation Guide](https://metagear-platform.schirmerlab.de/get-started) for full setup instructions.
 
 ## Basic usage
 
@@ -65,7 +65,7 @@ SAMPLE-01,/path/to/sample1_R1.fastq.gz,/path/to/sample1_R2.fastq.gz
 SAMPLE-02,/path/to/sample2_R1.fastq.gz,/path/to/sample2_R2.fastq.gz
 ```
 
-➡️  See the [Usage Guide](https://metagear-platform.schirmerlab.de/tools) for the complete reference.
+➡️ See the [Usage Guide](https://metagear-platform.schirmerlab.de/tools) for the complete reference.
 
 ## Documentation
 
@@ -76,6 +76,14 @@ SAMPLE-02,/path/to/sample2_R1.fastq.gz,/path/to/sample2_R2.fastq.gz
 - 📑 [How to cite](https://metagear-platform.schirmerlab.de/cite)
 
 The documentation site is built and published from [`schirmer-lab/metagear-platform`](https://github.com/schirmer-lab/metagear-platform).
+
+### Developing on the wrapper
+
+- [Architecture](docs/architecture.md) — how `main.sh`, `lib/`, `templates/` and `cluster/` fit together
+- [Development guide](docs/development_guide.md) — installing from a local checkout, install parameters
+- [Contributing](docs/contributing.md)
+- [Release guide](docs/release_guide.md) — changelog workflow and cutting a release
+- [Troubleshooting](docs/troubleshooting.md) — installation, configuration and runtime problems
 
 ## Support
 

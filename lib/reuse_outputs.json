@@ -63,6 +63,14 @@
       "produced_by": "GENOMAD_EXTRACT_CHROMOSOME"
     },
     {
+      "param": "viral_detection_dir",
+      "kind": "dir",
+      "subdir": "virus/per_sample",
+      "per_sample_suffix": "/virus.ids.txt",
+      "produced_by": "VIRAL_DETECTION:MERGE_TABLES",
+      "_comment": "Whole detection stage (geNomad + CheckV, both passes). Lets the virus workflow skip it when classification or an earlier virus run already produced it for the SAME contigs, so pair it with contigs_dir. The unfiltered plasmid summary is read from ../genomad relative to this directory."
+    },
+    {
       "param": "viral_ids_dir",
       "kind": "dir",
       "subdir": "virus/per_sample",

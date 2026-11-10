@@ -31,25 +31,25 @@ teardown() {
     rm -rf "$temp_dir"
 }
 
-@test "qc_dna --help shows help and doesn't trigger pipeline" {
-    # Run qc_dna --help
+@test "qc_dna --help shows the merged workflow's help" {
+    # The alias resolves before help is looked up, so this is qc's help.
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --help
 
     # Check that command succeeded
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
-    [[ "$output" =~ "Quality Control for DNA" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
     [[ "$output" =~ "--input" ]]
     [[ "$output" =~ "Input .csv file for quality control" ]]
     [[ "$output" =~ "Global parameters:" ]]
     [[ "$output" =~ "--outdir" ]]
 
     # Check that no pipeline files were created in working directory
-    [ ! -f "qc_dna.config" ]
-    [ ! -f "metagear_qc_dna.sh" ]
-    [ ! -f "input_qc_dna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -d "results" ]
 }
 
@@ -115,7 +115,7 @@ teardown() {
     [ ! -d "results" ]
 }
 
-@test "qc_rna --help shows help and doesn't trigger pipeline" {
+@test "qc_rna --help shows the merged workflow's help" {
     # Run qc_rna --help
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_rna --help
 
@@ -123,15 +123,15 @@ teardown() {
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear qc_rna" ]]
-    [[ "$output" =~ "Quality Control for RNA" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
     [[ "$output" =~ "--input" ]]
     [[ "$output" =~ "Input .csv file for quality control" ]]
 
     # Check that no pipeline files were created
-    [ ! -f "qc_rna.config" ]
-    [ ! -f "metagear_qc_rna.sh" ]
-    [ ! -f "input_qc_rna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -d "results" ]
 }
 
@@ -141,12 +141,12 @@ teardown() {
     # Test --help
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --help
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
 
     # Test -help
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna -help
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
 }
 
 @test "help flag works with other parameters (should still show help)" {
@@ -154,12 +154,12 @@ teardown() {
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --input test.csv --help --outdir custom
 
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
 
     # Check that no pipeline files were created despite other parameters
-    [ ! -f "qc_dna.config" ]
-    [ ! -f "metagear_qc_dna.sh" ]
-    [ ! -f "input_qc_dna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -f "test.csv" ]
     [ ! -d "custom" ]
 }
@@ -181,17 +181,17 @@ teardown() {
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
-    [[ "$output" =~ "Quality Control for DNA" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
     [[ "$output" =~ "--input" ]]
     [[ "$output" =~ "Input .csv file for quality control" ]]
     [[ "$output" =~ "Global parameters:" ]]
     [[ "$output" =~ "--outdir" ]]
 
     # Check that no pipeline files were created in working directory
-    [ ! -f "qc_dna.config" ]
-    [ ! -f "metagear_qc_dna.sh" ]
-    [ ! -f "input_qc_dna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -d "results" ]
 }
 
@@ -260,15 +260,15 @@ teardown() {
     [ "$status" -eq 0 ]
 
     # Check that help output contains expected elements
-    [[ "$output" =~ "Usage: metagear qc_rna" ]]
-    [[ "$output" =~ "Quality Control for RNA" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
     [[ "$output" =~ "--input" ]]
     [[ "$output" =~ "Input .csv file for quality control" ]]
 
     # Check that no pipeline files were created
-    [ ! -f "qc_rna.config" ]
-    [ ! -f "metagear_qc_rna.sh" ]
-    [ ! -f "input_qc_rna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -d "results" ]
 }
 
@@ -280,13 +280,13 @@ teardown() {
     [ "$status" -eq 0 ]
 
     # Check that help output is shown instead of executing pipeline
-    [[ "$output" =~ "Usage: metagear qc_dna" ]]
-    [[ "$output" =~ "Quality Control for DNA" ]]
+    [[ "$output" =~ "Usage: metagear qc" ]]
+    [[ "$output" =~ "Quality Control" ]]
 
     # Check that no pipeline files were created
-    [ ! -f "qc_dna.config" ]
-    [ ! -f "metagear_qc_dna.sh" ]
-    [ ! -f "input_qc_dna.csv" ]
+    [ ! -f "qc.config" ]
+    [ ! -f "metagear_qc.sh" ]
+    [ ! -f "input_qc.csv" ]
     [ ! -d "results" ]
 }
 

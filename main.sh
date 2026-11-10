@@ -207,6 +207,19 @@ fi
 COMMAND="$1"
 shift
 
+# qc_dna and qc_rna became `qc --assay`. Kept as aliases rather than removed: they are in
+# scripts, in cron entries and in people's shell history, and a rename is not a reason for any of
+# those to stop working. The assay is held here and added to the arguments further down rather
+# than spliced into "$@" now, so that bare `metagear qc_dna` still prints help instead of
+# becoming a one-argument command line that fails on a missing --input.
+ALIAS_ARGS=()
+case "$COMMAND" in
+    qc_dna|qc_rna)
+        ALIAS_ARGS=(--assay "${COMMAND#qc_}")
+        COMMAND="qc"
+        ;;
+esac
+
 # Handle global --help flag
 if [ "$COMMAND" = "--help" ] || [ "$COMMAND" = "-help" ] || [ "$COMMAND" = "help" ]; then
     usage
@@ -294,6 +307,42 @@ if [ ${#REMAINING_ARGS[@]} -eq 0 ]; then
         exit 0
     fi
     # If no required parameters, continue with execution (empty REMAINING_ARGS is fine)
+fi
+
+# First, because the parameters are collapsed into a map keyed by name, so a later
+# --assay from the user replaces the one the alias put here.
+if [ ${#ALIAS_ARGS[@]} -gt 0 ]; then
+    REMAINING_ARGS=("${ALIAS_ARGS[@]}" ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"})
+fi
+
+# Work out the assay from the reads when the workflow takes one and nobody said.
+#
+# Only then: a workflow with no `assay` parameter is left alone, which is every utility and
+# every workflow that takes no input at all. What is measured is how concentrated the library
+# is -- see lib/detect_assay.py -- and the answer is used only when it is unambiguous. An
+# uncertain reading stops the run and asks, because the failure mode of guessing is a run that
+# finishes, reports normally, and filtered against the wrong references.
+source "${UTILITIES_DIR}/lib/workflow_definitions.sh"
+if workflow_takes_assay "$COMMAND" && ! args_contain_assay ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"}; then
+    detect_input=$(args_input_path ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"})
+    if [ -n "$detect_input" ] && [ -r "$detect_input" ] && command -v python3 >/dev/null 2>&1; then
+        detected=$("${UTILITIES_DIR}/lib/detect_assay.py" "$detect_input" 2>/dev/null || echo unknown)
+        case "$detected" in
+            dna|rna)
+                echo "Detected a $(echo "$detected" | tr '[:lower:]' '[:upper:]') library; running with --assay $detected."
+                echo "  Pass --assay to say so yourself and skip this check."
+                REMAINING_ARGS=(--assay "$detected" "${REMAINING_ARGS[@]}")
+                ;;
+            *)
+                echo "Error: could not tell whether these are DNA or RNA libraries." >&2
+                echo "  Re-run with --assay dna or --assay rna." >&2
+                exit 1
+                ;;
+        esac
+    elif [ -n "$detect_input" ]; then
+        echo "Error: $COMMAND needs --assay dna or --assay rna." >&2
+        exit 1
+    fi
 fi
 
 # mkdir -p $LAUNCH_DIR/.metagear

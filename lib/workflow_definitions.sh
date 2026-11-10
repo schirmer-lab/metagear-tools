@@ -20,7 +20,11 @@ if [ -f "$INSTALL_DIR/latest/workflow_definitions.json" ] &&
 fi
 
 # Factory-style loader for JSON parser implementations
-# Load appropriate JSON parser based on availability (jq takes priority)
+# Load appropriate JSON parser based on availability (jq takes priority).
+# Chosen here and never inherited: an exported JSON_PARSER skipped the fallback below,
+# leaving jq's implementations live on a machine without jq.
+JSON_PARSER=""
+
 if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then
     source "$SCRIPT_DIR/json_parser_jq.sh"
     if check_jq_available; then
@@ -28,7 +32,7 @@ if [ -f "$SCRIPT_DIR/json_parser_jq.sh" ]; then
     fi
 fi
 
-if [ -z "${JSON_PARSER:-}" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
+if [ -z "$JSON_PARSER" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
     source "$SCRIPT_DIR/json_parser_python.sh"
     if check_python_available; then
         JSON_PARSER="python"
@@ -36,9 +40,16 @@ if [ -z "${JSON_PARSER:-}" ] && [ -f "$SCRIPT_DIR/json_parser_python.sh" ]; then
 fi
 
 # Error if no parser is available
-if [ -z "${JSON_PARSER:-}" ]; then
+if [ -z "$JSON_PARSER" ]; then
     echo "Error: Neither 'jq' nor 'python3' is available for JSON parsing." >&2
     echo "Please install one of them to use JSON workflow definitions." >&2
+    exit 1
+fi
+
+# A parser that exists is not yet a parser that works. Without this, a definitions file
+# it cannot read makes every command report itself as not found.
+if [ -z "$(get_available_workflows 2>/dev/null)" ]; then
+    echo "Error: $JSON_PARSER read no workflow from $JSON_DEFINITIONS_FILE." >&2
     exit 1
 fi
 
@@ -190,19 +201,25 @@ validate_workflow_and_parameters() {
 }
 
 # Function to get workflow list for usage display
+# Lists workflows, optionally only those in one group (workflow, utility).
 get_workflow_list() {
-    if [ -f "$JSON_DEFINITIONS_FILE" ]; then
-        # Use JSON definitions
-        while IFS= read -r workflow; do
-            [ -z "$workflow" ] && continue
-            local desc
-            desc=$(get_workflow_description "$workflow")
-            printf "  %-20s %s\n" "$workflow" "$desc"
-        done < <(get_available_workflows)
-    else
+    local only_group="${1:-}"
+
+    if [ ! -f "$JSON_DEFINITIONS_FILE" ]; then
         echo "Error: workflow definitions file not found at $JSON_DEFINITIONS_FILE" >&2
         return 1
     fi
+
+    local workflow desc group
+    while IFS= read -r workflow; do
+        [ -z "$workflow" ] && continue
+        if [ -n "$only_group" ]; then
+            group=$(get_workflow_group "$workflow")
+            [ "${group:-workflow}" = "$only_group" ] || continue
+        fi
+        desc=$(get_workflow_description "$workflow")
+        printf "    %-20s %s\n" "$workflow" "$desc"
+    done < <(get_available_workflows)
 }
 
 # Function to display workflow-specific help
@@ -272,4 +289,38 @@ show_workflow_help() {
     done < <(get_global_parameters)
 
     echo ""
+}
+
+# Does this workflow have to be told which library it is cleaning? Read off the pipeline's own
+# parameter list, so a workflow that gains or loses an assay needs no change here.
+workflow_takes_assay() {
+    get_workflow_parameters "$1" 2>/dev/null | grep -q '"name":"assay"'
+}
+
+# Did the caller already name one? Both spellings, because both reach nextflow.
+args_contain_assay() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --assay|-assay|--assay=*|-assay=*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# The --input the caller gave, or empty. Only used to decide whether there is anything to look
+# at: a workflow invoked without one has nothing to detect from.
+args_input_path() {
+    local previous=""
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --input=*|-input=*) printf '%s' "${arg#*=}"; return 0 ;;
+        esac
+        case "$previous" in
+            --input|-input) printf '%s' "$arg"; return 0 ;;
+        esac
+        previous="$arg"
+    done
+    return 0
 }

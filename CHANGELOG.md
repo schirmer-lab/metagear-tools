@@ -9,6 +9,33 @@ share a version number because the wrapper mirrors the pipeline's workflow and p
 
 ## [Unreleased]
 
+## [26.11] - 2026-11-10
+
+Paired with pipeline 26.11.
+
+### Added
+
+- `easy_map`: map reads against a catalog the caller supplies, with `--input`, `--catalog` and `--catalog_label`. `--catalog_index` points at a bwa index built earlier from the same catalog so the pipeline skips its own index build.
+- `qc` takes `--assay dna|rna`. `qc_dna` and `qc_rna` stay as aliases, so existing commands keep working.
+- When `qc` is called without `--assay`, the assay is worked out from the reads: `lib/detect_assay.py` measures how concentrated the library is across the top ten sequences. A reading that falls between the two thresholds stops the run and asks rather than guessing.
+- `lib/check_mapping_resources.py` sizes the abundance processes for one node from the peak_rss recorded in earlier runs' execution traces, projecting to a new catalog size and library count.
+- Developer documentation under `docs/`: architecture, contributing, development guide, release guide and troubleshooting. These pages documented this repository but had stayed behind in the platform repo when the CLI was split out.
+- `--reuse-outputs` now auto-discovers a previous run's viral detection output, and the gene catalog's abundance tables (`representative_genes_tpm`, `representative_genes_rpkm`, `representative_genes_count`) for the `virus` workflow, matching the pipeline's new skip-if-set paths.
+
+### Changed
+
+- `metagear --help` groups the workflows rather than listing them flat, and carries the QC parameters.
+- `resources.yaml` accepts a memory expression for a process whose memory tracks its input, instead of requiring a flat number.
+- The empty Setup section is gone from the help.
+- `.gitignore` covers local scratch directories, Python bytecode, and the log files the TSM backup client writes into whatever directory it runs in.
+
+### Fixed
+
+- The assay thresholds were re-measured under the settings that actually ship, then recalibrated on the whole DNA batch. Twelve hand-picked samples put the DNA ceiling at 0.069%; all twenty put it at 0.590%, so a real sample had been landing in the dead zone and stopping a run.
+- `lib/build_resources_config.sh` kept only the text before the first comma in a quoted field, reading the rest as further keys.
+- The JSON parser choice is no longer inherited from the environment. An exported `JSON_PARSER` skipped the availability fallback, leaving jq's implementations live on a machine without jq.
+- `lib/__pycache__/detect_assay.cpython-311.pyc` is no longer tracked; it had been committed by accident and shipped in the install archive.
+
 ## [26.09] - 2026-09-01
 
 Paired with pipeline 26.09. Adopts date-based versioning; the jump from 1.0.1 is a change of scheme,

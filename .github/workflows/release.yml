@@ -3,7 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      # Bare and date-based, matching the tags this repo actually uses: 26.09, and
+      # 26.09.1 for a fix within the same month. The previous 'v*.*.*' matched neither
+      # the absent v prefix nor the two-component form, so this workflow had never run.
+      - '[0-9][0-9].[0-9][0-9]'
+      - '[0-9][0-9].[0-9][0-9].[0-9]*'
 
 jobs:
   release:
@@ -39,13 +43,29 @@ jobs:
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Through the environment, never interpolated into the script. The changelog is
+          # full of `backticked` flag names, and inside a double-quoted shell string those
+          # are command substitutions: the body would arrive with every code span executed
+          # and blanked out. It is also untrusted input as far as the shell is concerned.
+          RELEASE_NOTES: ${{ steps.changelog.outputs.RELEASE_NOTES }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create ${{ github.ref_name }} \
-            --title "Release ${{ github.ref_name }}" \
-            --notes "## What's Changed
+          # github.event.before is all zeros when a push creates a new ref, so the compare
+          # link it used to build never resolved. Derive the previous tag instead, and omit
+          # the link when there is none. fetch-depth 0 above makes the tags available.
+          prev_tag="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          {
+            echo "## What's Changed"
+            echo
+            printf '%s\n' "$RELEASE_NOTES"
+            if [ -n "$prev_tag" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev_tag}...${TAG}"
+            fi
+          } > "${RUNNER_TEMP}/release_notes.md"
 
-          ${{ steps.changelog.outputs.RELEASE_NOTES }}
-
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}" \
+          gh release create "$TAG" \
+            --title "Release $TAG" \
+            --notes-file "${RUNNER_TEMP}/release_notes.md" \
             --draft=false \
             --prerelease=false

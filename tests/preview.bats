@@ -33,7 +33,27 @@ cleanup_dev_environment() {
     rm -f "$INSTALL_DIR/metagear.env" 2>/dev/null || true
 }
 
-@test "main.sh qc_dna --preview creates script and shows preview mode message" {
+@test "an explicit --assay overrides the one an alias supplied" {
+    temp_work_dir=$(mktemp -d)
+    original_dir="$PWD"
+    cd "$temp_work_dir"
+    create_test_csv
+    setup_dev_environment
+
+    run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --input test.csv --assay rna --preview
+
+    [ "$status" -eq 0 ]
+    # Parameters are collapsed into a map keyed by name, so exactly one --assay is emitted and
+    # it is the user's. Writing qc_dna and then --assay rna does what it looks like it does.
+    [ "$(grep -c -o -- "--assay" metagear_qc.sh)" -eq 1 ]
+    grep -q -- "--assay rna" metagear_qc.sh
+
+    cd "$original_dir"
+    rm -rf "$temp_work_dir"
+    cleanup_dev_environment
+}
+
+@test "main.sh qc_dna --preview resolves the alias and shows preview mode message" {
     # 0) Create and change to temporary working directory
     temp_work_dir=$(mktemp -d)
     original_dir="$PWD"
@@ -45,14 +65,17 @@ cleanup_dev_environment() {
     # 2) Set up environment variables and directory structure
     setup_dev_environment
     
-    # 3) Run the command: ../main.sh qc_dna --input test.csv --preview
+    # 3) qc_dna is an alias for `qc --assay dna`, so the run is a qc run.
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --input test.csv --preview
     
     # 4) Check that the command completed successfully
     [ "$status" -eq 0 ]
     
-    # 5) Check that metagear_qc_dna.sh file has been created
-    [ -f metagear_qc_dna.sh ]
+    # 5) Named for the workflow the alias resolved to
+    [ -f metagear_qc.sh ]
+    [ ! -f metagear_qc_dna.sh ]
+    # and carrying the assay the alias supplied
+    grep -q -- "--assay dna" metagear_qc.sh
     
     # 6) Check that "Preview mode" message is printed in the output
     [[ "$output" =~ "Preview mode" ]]
@@ -78,10 +101,53 @@ cleanup_dev_environment() {
     # 3) Run the command with invalid parameter: ../main.sh qc_dna --input test.csv --wrong-param value
     run bash "$BATS_TEST_DIRNAME/../main.sh" qc_dna --input test.csv --wrong-param value --preview
     
-    # 4) Check that the error message contains "Invalid option: --wrong-param for qc_dna workflow."
-    [[ "$output" =~ "Invalid option: --wrong-param for qc_dna workflow." ]]
+    # 4) Check that the error message contains "Invalid option: --wrong-param for qc workflow."
+    [[ "$output" =~ "Invalid option: --wrong-param for qc workflow." ]]
     
     # Clean up
+    cd "$original_dir"
+    rm -rf "$temp_work_dir"
+    cleanup_dev_environment
+}
+
+@test "qc works the assay out from the reads when nobody says" {
+    temp_work_dir=$(mktemp -d)
+    original_dir="$PWD"
+    cd "$temp_work_dir"
+    setup_dev_environment
+
+    # Real DNA libraries from the MRI test batch. What separates them from RNA is how
+    # concentrated the library is, which is measurable from the reads alone.
+    sheet=/nfs/data/cohorts/internal/hms_mri_2026/test_batch_prebiomics/QC/input.csv
+    if [ ! -r "$sheet" ]; then skip "cohort reads not mounted"; fi
+
+    run bash "$BATS_TEST_DIRNAME/../main.sh" qc --input "$sheet" --outdir out --preview
+
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Detected a DNA library" ]]
+    grep -q -- "--assay dna" metagear_qc.sh
+
+    cd "$original_dir"
+    rm -rf "$temp_work_dir"
+    cleanup_dev_environment
+}
+
+@test "a sheet it cannot read as either stops the run instead of guessing" {
+    temp_work_dir=$(mktemp -d)
+    original_dir="$PWD"
+    cd "$temp_work_dir"
+    setup_dev_environment
+
+    # Points at nothing, so there is no evidence either way. A default here would be a run
+    # that finishes, reports normally, and filtered against the wrong references.
+    printf 'sample,fastq_1,fastq_2\nX,/nowhere/a.fastq.gz,/nowhere/b.fastq.gz\n' > empty.csv
+
+    run bash "$BATS_TEST_DIRNAME/../main.sh" qc --input empty.csv --outdir out --preview
+
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "could not tell whether these are DNA or RNA" ]]
+    [ ! -f metagear_qc.sh ]
+
     cd "$original_dir"
     rm -rf "$temp_work_dir"
     cleanup_dev_environment

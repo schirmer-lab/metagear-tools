@@ -30,9 +30,10 @@ function usage() {
     done < <(get_presets 2>/dev/null)
     echo ""
     echo "Workflows:"
-    get_workflow_list
+    get_workflow_list workflow
     echo ""
     echo "Utilities:"
+    get_workflow_list utility
     echo "    clean                Reclaim a finished workspace's work directory. Results are kept."
     echo "                         See \`metagear clean --help\`."
     echo "    cluster              Start, stop and inspect the machines runs are spread across."
