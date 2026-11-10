@@ -201,19 +201,25 @@ validate_workflow_and_parameters() {
 }
 
 # Function to get workflow list for usage display
+# Lists workflows, optionally only those in one group (workflow, utility).
 get_workflow_list() {
-    if [ -f "$JSON_DEFINITIONS_FILE" ]; then
-        # Use JSON definitions
-        while IFS= read -r workflow; do
-            [ -z "$workflow" ] && continue
-            local desc
-            desc=$(get_workflow_description "$workflow")
-            printf "  %-20s %s\n" "$workflow" "$desc"
-        done < <(get_available_workflows)
-    else
+    local only_group="${1:-}"
+
+    if [ ! -f "$JSON_DEFINITIONS_FILE" ]; then
         echo "Error: workflow definitions file not found at $JSON_DEFINITIONS_FILE" >&2
         return 1
     fi
+
+    local workflow desc group
+    while IFS= read -r workflow; do
+        [ -z "$workflow" ] && continue
+        if [ -n "$only_group" ]; then
+            group=$(get_workflow_group "$workflow")
+            [ "${group:-workflow}" = "$only_group" ] || continue
+        fi
+        desc=$(get_workflow_description "$workflow")
+        printf "    %-20s %s\n" "$workflow" "$desc"
+    done < <(get_available_workflows)
 }
 
 # Function to display workflow-specific help
@@ -283,4 +289,38 @@ show_workflow_help() {
     done < <(get_global_parameters)
 
     echo ""
+}
+
+# Does this workflow have to be told which library it is cleaning? Read off the pipeline's own
+# parameter list, so a workflow that gains or loses an assay needs no change here.
+workflow_takes_assay() {
+    get_workflow_parameters "$1" 2>/dev/null | grep -q '"name":"assay"'
+}
+
+# Did the caller already name one? Both spellings, because both reach nextflow.
+args_contain_assay() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --assay|-assay|--assay=*|-assay=*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# The --input the caller gave, or empty. Only used to decide whether there is anything to look
+# at: a workflow invoked without one has nothing to detect from.
+args_input_path() {
+    local previous=""
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --input=*|-input=*) printf '%s' "${arg#*=}"; return 0 ;;
+        esac
+        case "$previous" in
+            --input|-input) printf '%s' "$arg"; return 0 ;;
+        esac
+        previous="$arg"
+    done
+    return 0
 }
