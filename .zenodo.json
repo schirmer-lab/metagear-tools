@@ -1,0 +1,13 @@
+{
+    "upload_type": "software",
+    "access_right": "open",
+    "license": "mit",
+    "creators": [
+        {
+            "name": "Ríos, Emilio",
+            "affiliation": "Technische Universität München",
+            "orcid": "0000-0002-0699-4769"
+        }
+    ],
+    "keywords": ["metagenomics", "microbiome", "nextflow", "bioinformatics", "workflow", "command-line"]
+}
